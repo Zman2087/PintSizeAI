@@ -1,0 +1,61 @@
+name: mypocketai
+description: PintSizeAi — on-device LLM runner with Siri integration for iOS and Android.
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Typography — Inter via Google Fonts (closest public match to ChatGPT's Söhne)
+  google_fonts: ^6.2.1
+
+  # State management — Riverpod for model loading state and token streaming
+  flutter_riverpod: ^2.5.1
+
+  # File system — storing .gguf model files on-device
+  path_provider: ^2.1.3
+  path: ^1.9.0
+
+  # Model downloads with progress and resume support
+  dio: ^5.4.3+1
+
+  # FFI bridge to llama.cpp (native C++ inference engine)
+  ffi: ^2.1.2
+
+  # Permissions — storage access on Android
+  permission_handler: ^11.3.1
+
+  # Attachments — pick photos, videos, and files
+  image_picker: ^1.1.2
+  file_picker: ^8.1.2
+
+  # Persistence — last used model, settings
+  shared_preferences: ^2.3.2
+
+  # Zip extraction — used to unpack CoreML model downloads (no shell on iOS)
+  archive: ^3.6.1
+
+  # Open external URLs (HuggingFace links, etc.)
+  url_launcher: ^6.3.0
+
+  # Pure-Dart image encoding (generate PNGs without GPU/Metal)
+  image: ^4.2.0
+
+  # Save images to camera roll
+  gal: ^1.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icons/

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ios/Runner/Info.plist additions for PintSizeAi Siri integration.
+
+  Add these keys to your existing Info.plist in Xcode.
+  Do NOT replace the whole file — merge these into what Flutter generated.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <!-- ── Siri usage description ──────────────────────────────────────────── -->
+  <!-- Required. Shown to the user when Siri permission is first requested.   -->
+  <!-- Must explain what Siri access is used for — App Store review checks.   -->
+  <key>NSSiriUsageDescription</key>
+  <string>PintSizeAi uses Siri so you can ask questions to your on-device AI
+  by voice. Your questions never leave your device.</string>
+
+  <!-- ── Deep link URL scheme ─────────────────────────────────────────────── -->
+  <!-- Registers pintsizeai:// so AskPintSizeAiIntent can open the app via    -->
+  <!-- deep link when the main app process isn't running.                     -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>com.pintsizeai.app</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>pintsizeai</string>
+      </array>
+    </dict>
+  </array>
+
+  <!-- ── Intent classes supported in-app ─────────────────────────────────── -->
+  <!-- Tells iOS which intent types this app can handle without an extension. -->
+  <!-- iOS 14+ supports in-app intent handling for these types.               -->
+  <key>NSUserActivityTypes</key>
+  <array>
+    <string>AskPintSizeAiIntent</string>
+    <string>OpenPintSizeAiIntent</string>
+    <string>NewChatIntent</string>
+  </array>
+
+  <!-- ── Background modes ──────────────────────────────────────────────────  -->
+  <!-- "processing" allows the app to be woken for background inference        -->
+  <!-- when triggered by a Siri intent with openAppWhenRun = false.           -->
+  <key>UIBackgroundModes</key>
+  <array>
+    <string>processing</string>
+    <string>fetch</string>
+  </array>
+
+</dict>
+</plist>

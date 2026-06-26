@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ios/Runner/Runner.entitlements
+  
+  Replace or merge with your existing Runner.entitlements in Xcode.
+  These entitlements are required for:
+    1. Siri integration (request to Siri)
+    2. App Groups shared container (IPC between Runner and SiriIntents extension)
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <!-- Enables Siri capability on this target -->
+  <key>com.apple.developer.siri</key>
+  <true/>
+
+  <!-- App Group shared container — must match the ID in:
+       - SiriBridge.swift (kAppGroupID)
+       - PintSizeAiIntents.swift (kAppGroupID)
+       - SiriIntents.entitlements (below)
+       
+       Register this group ID in your Apple Developer portal first:
+       developer.apple.com → Certificates, Identifiers & Profiles → App Groups
+  -->
+  <key>com.apple.security.application-groups</key>
+  <array>
+    <string>group.com.pintsizeai.app</string>
+  </array>
+
+</dict>
+</plist>
