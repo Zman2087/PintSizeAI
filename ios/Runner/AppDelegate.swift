@@ -43,6 +43,12 @@ import AppIntents
         // LLM inference — llama.cpp bridge
         llamaPlugin = LlamaPlugin.register(with: flutterEngine.binaryMessenger)
 
+        // Voice input (STT) + output (TTS)
+        VoicePlugin.register(with: flutterEngine.binaryMessenger)
+
+        // Media analysis: image understanding, background removal, PDF extraction
+        MediaPlugin.register(with: flutterEngine.binaryMessenger)
+
         // ── Register Siri method channel ─────────────────────────────────
         let siriChannel = FlutterMethodChannel(
             name: "com.mypocketai/siri",

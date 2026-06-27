@@ -7,6 +7,7 @@ import '../features/device_recommender/recommender_providers.dart';
 import '../features/image_gen/image_gen_providers.dart';
 import '../features/models/model_providers.dart';
 import '../features/settings/settings_providers.dart';
+import '../features/settings/settings_service.dart';
 import '../theme/theme.dart';
 import 'image_gen_screen.dart';
 import 'legal/privacy_policy_screen.dart';
@@ -106,6 +107,20 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
+
+          const SizedBox(height: 20),
+
+          // AI Behaviour
+          _SectionHeader('AI Behaviour'),
+          _SystemPromptCard(),
+          const SizedBox(height: 12),
+          _MemoryCard(),
+
+          const SizedBox(height: 20),
+
+          // Voice
+          _SectionHeader('Voice'),
+          _VoiceSettingsCard(),
 
           const SizedBox(height: 20),
 
@@ -619,6 +634,212 @@ class _CapRow extends StatelessWidget {
                 ],
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// System prompt card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SystemPromptCard extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_SystemPromptCard> createState() => _SystemPromptCardState();
+}
+
+class _SystemPromptCardState extends ConsumerState<_SystemPromptCard> {
+  late TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final current = ref.read(customSystemPromptProvider) ?? '';
+    _ctrl = TextEditingController(text: current);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.edit_note_outlined,
+                  size: 18, color: AppColors.textMuted),
+              const SizedBox(width: 8),
+              Text('Custom system prompt', style: AppTypography.modelName),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Override the default AI personality. Leave blank to use the default.',
+            style: AppTypography.modelDesc,
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _ctrl,
+            style: AppTypography.messageBody
+                .copyWith(fontSize: 13),
+            maxLines: 4,
+            decoration: InputDecoration(
+              hintText: 'You are a helpful assistant...',
+              hintStyle: AppTypography.placeholder,
+              filled: true,
+              fillColor: AppColors.surfaceBase,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppColors.borderDefault),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppColors.borderDefault),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: AppColors.accentGreen),
+              ),
+              contentPadding: const EdgeInsets.all(10),
+            ),
+            onChanged: (val) {
+              ref.read(customSystemPromptProvider.notifier).update(val.isEmpty ? null : val);
+              ref.read(settingsServiceProvider).setSystemPrompt(val);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Memory card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MemoryCard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final memories = ref.watch(persistentMemoriesProvider);
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.psychology_outlined,
+                  size: 18, color: AppColors.textMuted),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Persistent memory', style: AppTypography.modelName),
+              ),
+              if (memories.isNotEmpty)
+                GestureDetector(
+                  onTap: () async {
+                    ref.read(persistentMemoriesProvider.notifier).clear();
+                    await ref.read(settingsServiceProvider).clearMemories();
+                  },
+                  child: Text('Clear',
+                      style: AppTypography.badge
+                          .copyWith(color: const Color(0xFFEF4444))),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'The AI automatically summarises conversations and remembers them across sessions.',
+            style: AppTypography.modelDesc,
+          ),
+          if (memories.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...memories.map((m) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('• ',
+                          style: TextStyle(color: AppColors.textMuted)),
+                      Expanded(
+                        child: Text(m, style: AppTypography.modelDesc),
+                      ),
+                    ],
+                  ),
+                )),
+          ] else ...[
+            const SizedBox(height: 6),
+            Text('No memories yet — start chatting!',
+                style: AppTypography.modelDesc.copyWith(
+                    fontStyle: FontStyle.italic)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Voice settings card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _VoiceSettingsCard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final autoSpeak = ref.watch(autoSpeakProvider);
+    return _Card(
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.record_voice_over_outlined,
+                  size: 18, color: AppColors.textMuted),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Auto-read responses', style: AppTypography.modelName),
+                    Text('AI replies are spoken aloud automatically.',
+                        style: AppTypography.modelDesc),
+                  ],
+                ),
+              ),
+              Switch(
+                value: autoSpeak,
+                onChanged: (v) {
+                  ref.read(autoSpeakProvider.notifier).set(v);
+                  ref.read(settingsServiceProvider).setAutoSpeak(v);
+                },
+                activeColor: AppColors.accentGreen,
+              ),
+            ],
+          ),
+          const Divider(height: 1, color: AppColors.borderDefault, indent: 30),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.mic_none_outlined,
+                  size: 18, color: AppColors.textMuted),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Voice input', style: AppTypography.modelName),
+                    Text('Tap the mic icon in the chat bar to speak your message.',
+                        style: AppTypography.modelDesc),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

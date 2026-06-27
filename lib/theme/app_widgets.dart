@@ -348,7 +348,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// The bottom input bar.
-///   [+]  [attachment previews] [Message...]  [web] [send/stop]
+///   [+]  [attachment previews] [Message...]  [web] [mic] [send/stop]
 class ChatInputBox extends StatelessWidget {
   const ChatInputBox({
     super.key,
@@ -362,6 +362,9 @@ class ChatInputBox extends StatelessWidget {
     this.placeholder = 'Message',
     this.webSearchEnabled = false,
     this.onToggleWebSearch,
+    this.isListening = false,
+    this.onToggleVoice,
+    this.onRemoveBackgroundTap,
     // Legacy — kept for callers that only have names
     this.pendingAttachmentNames = const [],
   });
@@ -376,6 +379,9 @@ class ChatInputBox extends StatelessWidget {
   final String placeholder;
   final bool webSearchEnabled;
   final VoidCallback? onToggleWebSearch;
+  final bool isListening;
+  final VoidCallback? onToggleVoice;
+  final VoidCallback? onRemoveBackgroundTap;
   // Legacy — used when caller hasn't migrated yet
   final List<String> pendingAttachmentNames;
 
@@ -429,7 +435,25 @@ class ChatInputBox extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                if (onRemoveBackgroundTap != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, bottom: 2),
+                    child: GestureDetector(
+                      onTap: onRemoveBackgroundTap,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_fix_high,
+                              size: 13, color: AppColors.accentGreen),
+                          const SizedBox(width: 4),
+                          Text('Remove background',
+                              style: AppTypography.badge.copyWith(
+                                  color: AppColors.accentGreen)),
+                        ],
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 4),
               ],
               // Input row
               Row(
@@ -463,16 +487,24 @@ class ChatInputBox extends StatelessWidget {
                   GestureDetector(
                     onTap: onToggleWebSearch,
                     child: Tooltip(
-                      message: webSearchEnabled
-                          ? 'Web search on'
-                          : 'Web search off',
-                      child: Icon(
-                        Icons.language_outlined,
-                        size: 20,
-                        color: webSearchEnabled
-                            ? AppColors.accentGreen
-                            : AppColors.textMuted,
-                      ),
+                      message: webSearchEnabled ? 'Web on' : 'Web off',
+                      child: Icon(Icons.language_outlined,
+                          size: 20,
+                          color: webSearchEnabled
+                              ? AppColors.accentGreen
+                              : AppColors.textMuted),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Mic button — pulses red while listening
+                  GestureDetector(
+                    onTap: onToggleVoice,
+                    child: Icon(
+                      isListening ? Icons.mic : Icons.mic_none_outlined,
+                      size: 20,
+                      color: isListening
+                          ? const Color(0xFFEF4444)
+                          : AppColors.textMuted,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),

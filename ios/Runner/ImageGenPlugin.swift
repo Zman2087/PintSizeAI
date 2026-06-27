@@ -45,6 +45,14 @@ class ImageGenPlugin: NSObject, FlutterStreamHandler {
                 result(FlutterError(code: "BAD_ARGS", message: "prompt required", details: nil))
                 return
             }
+            // img2img: optional source image bytes + strength
+            var srcImage: CGImage? = nil
+            if let rawBytes = args["sourceImageBytes"] as? FlutterStandardTypedData,
+               let uiImg = UIImage(data: rawBytes.data) {
+                srcImage = uiImg.cgImage
+            }
+            let strength = (args["strength"] as? NSNumber)?.floatValue ?? 0.7
+
             doGenerate(
                 prompt: prompt,
                 negativePrompt: args["negativePrompt"] as? String ?? "low quality, blurry",
@@ -52,6 +60,8 @@ class ImageGenPlugin: NSObject, FlutterStreamHandler {
                 guidanceScale: (args["guidanceScale"] as? NSNumber)?.floatValue ?? 7.5,
                 seed: (args["seed"] as? NSNumber)?.uint32Value ?? UInt32.random(in: 0..<UInt32.max),
                 frameCount: args["frameCount"] as? Int ?? 1,
+                startingImage: srcImage,
+                strength: strength,
                 result: result
             )
 
@@ -107,6 +117,8 @@ class ImageGenPlugin: NSObject, FlutterStreamHandler {
                              guidanceScale: Float,
                              seed: UInt32,
                              frameCount: Int,
+                             startingImage: CGImage? = nil,
+                             strength: Float = 0.7,
                              result: @escaping FlutterResult) {
         guard #available(iOS 16.2, *) else {
             result(FlutterError(code: "NOT_SUPPORTED", message: "Requires iOS 16.2+", details: nil))
@@ -129,6 +141,8 @@ class ImageGenPlugin: NSObject, FlutterStreamHandler {
                     guidanceScale: guidanceScale,
                     seed: seed,
                     frameCount: frameCount,
+                    startingImage: startingImage,
+                    strength: strength,
                     onProgress: { step, total, overall in
                         DispatchQueue.main.async {
                             sink?(["step": step, "stepCount": total, "progress": overall]

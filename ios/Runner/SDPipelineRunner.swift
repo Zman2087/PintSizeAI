@@ -41,6 +41,8 @@ final class SDPipelineRunner {
         guidanceScale: Float,
         seed: UInt32,
         frameCount: Int,
+        startingImage: CGImage? = nil,
+        strength: Float = 0.7,
         onProgress: @escaping (_ step: Int, _ total: Int, _ overall: Double) -> Void
     ) throws -> Data {
         guard let pl = pipeline else {
@@ -63,6 +65,12 @@ final class SDPipelineRunner {
             cfg.seed = frameSeed
             cfg.guidanceScale = guidanceScale
             cfg.schedulerType = .dpmSolverMultistepScheduler
+
+            // img2img: use source image as starting point
+            if let srcImg = startingImage {
+                cfg.startingImage = srcImg
+                cfg.strength = strength
+            }
 
             let images = try pl.generateImages(
                 configuration: cfg,

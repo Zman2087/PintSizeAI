@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +16,9 @@ import '../features/llm/llm_providers.dart';
 import '../features/models/model_download_service.dart';
 import '../features/models/model_providers.dart';
 import '../features/settings/settings_providers.dart';
+import '../features/media/media_service.dart';
+import '../features/voice/voice_providers.dart';
+import '../features/voice/voice_service.dart';
 import '../features/web_search/web_search_service.dart';
 import '../theme/app_widgets.dart';
 import '../theme/theme.dart';
@@ -98,7 +102,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final List<ChatAttachment> _pendingAttachments = [];
   List<_Cmd> _commandSuggestions = [];
   bool _webSearchEnabled = false;
+  bool _isListening = false;
+  String _partialTranscript = '';
+  StreamSubscription<VoiceTranscript>? _voiceSub;
   final _webSearch = WebSearchService();
+  final _media = MediaService();
 
   @override
   void initState() {
@@ -134,7 +142,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   @override
+  @override
   void dispose() {
+    _voiceSub?.cancel();
     _inputCtrl.removeListener(_onInputChanged);
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
@@ -223,12 +233,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
 
-    if (_webSearchEnabled) {
-      _sendWithWebSearch(text, attachments: attachments);
-    } else {
-      ref.read(chatControllerProvider.notifier).send(text, attachments: attachments);
-    }
+    _sendEnriched(text, attachments: attachments);
     _scrollToBottom();
+  }
+
+  Future<void> _sendEnriched(String text,
+      {List<ChatAttachment> attachments = const []}) async {
+    // Enrich with Vision analysis / PDF text
+    String enriched = await _enrichWithMedia(text, attachments);
+
+    // Optionally also add web search context
+    if (_webSearchEnabled) {
+      final webCtx = await _webSearch.search(text);
+      if (webCtx != null) enriched = '$webCtx\n\n$enriched';
+    }
+
+    final displayText = enriched == text ? null : text;
+    ref
+        .read(chatControllerProvider.notifier)
+        .send(enriched, displayText: displayText, attachments: attachments);
   }
 
   Future<void> _sendWithWebSearch(String text,
@@ -239,6 +262,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .read(chatControllerProvider.notifier)
         .send(enriched, displayText: text, attachments: attachments);
     _scrollToBottom();
+  }
+
+  /// Builds an enriched message text by prepending Vision analysis and PDF
+  /// text for any attached images/PDFs so the LLM has visual context.
+  Future<String> _enrichWithMedia(
+      String text, List<ChatAttachment> attachments) async {
+    final extra = StringBuffer();
+
+    for (final att in attachments) {
+      if (att.isImage && att.thumbnailBytes != null) {
+        final desc = await _media.analyzeImage(att.thumbnailBytes!);
+        if (desc != null) extra.writeln(desc);
+      }
+      if (att.isFile && att.generationPrompt != null) {
+        extra.writeln('[Document: ${att.name}]\n${att.generationPrompt}');
+      }
+    }
+
+    if (extra.isEmpty) return text;
+    return '${extra.toString().trim()}\n\nUser: $text';
   }
 
   void _showHelpMessage() {
@@ -520,6 +563,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
       if (result == null || result.files.isEmpty) return;
       final f = result.files.first;
+      final ext = (f.extension ?? '').toLowerCase();
+
+      // For PDFs, extract text and store it so the LLM can read it
+      String? extractedText;
+      if (ext == 'pdf' && f.path != null) {
+        try {
+          extractedText = await _media.extractPDF(f.path!);
+          if (extractedText != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('PDF text extracted (${(extractedText.length / 1000).toStringAsFixed(0)}k chars)'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+            // Pre-fill the input with context
+            _inputCtrl.text = '[PDF: ${f.name}]\n';
+          }
+        } catch (_) {}
+      }
+
       setState(() {
         _pendingAttachments.add(ChatAttachment(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -527,7 +590,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           name: f.name,
           localPath: f.path,
           sizeBytes: f.size,
-          mimeType: f.extension != null ? 'application/${f.extension}' : null,
+          mimeType: ext == 'pdf' ? 'application/pdf' : 'application/$ext',
+          generationPrompt: extractedText, // reuse field to store extracted text
         ));
       });
     } catch (e) {
@@ -709,6 +773,71 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  // ── Voice input ─────────────────────────────────────────────────────────────
+
+  void _toggleVoice() {
+    if (_isListening) {
+      _stopListening();
+    } else {
+      _startListening();
+    }
+  }
+
+  void _startListening() {
+    final svc = ref.read(voiceServiceProvider);
+    setState(() {
+      _isListening = true;
+      _partialTranscript = '';
+      _inputCtrl.clear();
+    });
+
+    _voiceSub = svc.startListening().listen(
+      (t) {
+        setState(() => _partialTranscript = t.text);
+        _inputCtrl.text = t.text;
+        _inputCtrl.selection = TextSelection.collapsed(
+            offset: _inputCtrl.text.length);
+        if (t.isFinal) {
+          _stopListening();
+          if (t.text.trim().isNotEmpty) _send();
+        }
+      },
+      onError: (_) => setState(() => _isListening = false),
+      onDone: () => setState(() => _isListening = false),
+    );
+  }
+
+  void _stopListening() {
+    _voiceSub?.cancel();
+    _voiceSub = null;
+    setState(() => _isListening = false);
+    ref.read(voiceServiceProvider).stopListening();
+  }
+
+  // ── Background removal ───────────────────────────────────────────────────────
+
+  Future<void> _removeBackground(int attachmentIndex) async {
+    final attachment = _pendingAttachments[attachmentIndex];
+    if (attachment.thumbnailBytes == null) return;
+
+    try {
+      final result = await _media.removeBackground(attachment.thumbnailBytes!);
+      setState(() {
+        _pendingAttachments[attachmentIndex] = ChatAttachment(
+          id: attachment.id,
+          type: attachment.type,
+          name: '${attachment.name} (no bg)',
+          localPath: attachment.localPath,
+          thumbnailBytes: result,
+          sizeBytes: result.length,
+          mimeType: 'image/png',
+        );
+      });
+    } catch (e) {
+      _showError('Background removal failed: $e');
+    }
+  }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -789,8 +918,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             webSearchEnabled: _webSearchEnabled,
             onToggleWebSearch: () =>
                 setState(() => _webSearchEnabled = !_webSearchEnabled),
+            isListening: _isListening,
+            onToggleVoice: _toggleVoice,
             onRemoveAttachment: (i) =>
                 setState(() => _pendingAttachments.removeAt(i)),
+            onRemoveBackgroundTap: _pendingAttachments.any((a) => a.isImage)
+                ? () {
+                    final idx = _pendingAttachments.indexWhere((a) => a.isImage);
+                    if (idx >= 0) _removeBackground(idx);
+                  }
+                : null,
           ),
         ],
       ),
@@ -1282,6 +1419,9 @@ class _ChatInput extends StatelessWidget {
     required this.onRemoveAttachment,
     this.webSearchEnabled = false,
     this.onToggleWebSearch,
+    this.isListening = false,
+    this.onToggleVoice,
+    this.onRemoveBackgroundTap,
   });
 
   final TextEditingController controller;
@@ -1294,6 +1434,9 @@ class _ChatInput extends StatelessWidget {
   final ValueChanged<int> onRemoveAttachment;
   final bool webSearchEnabled;
   final VoidCallback? onToggleWebSearch;
+  final bool isListening;
+  final VoidCallback? onToggleVoice;
+  final VoidCallback? onRemoveBackgroundTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1307,6 +1450,9 @@ class _ChatInput extends StatelessWidget {
       onRemoveAttachment: onRemoveAttachment,
       webSearchEnabled: webSearchEnabled,
       onToggleWebSearch: onToggleWebSearch,
+      isListening: isListening,
+      onToggleVoice: onToggleVoice,
+      onRemoveBackgroundTap: onRemoveBackgroundTap,
       placeholder: modelLoaded ? 'Message' : 'Message  ·  /image  ·  /video',
     );
   }

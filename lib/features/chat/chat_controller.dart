@@ -4,6 +4,9 @@ import '../attachments/attachment.dart';
 import '../device_recommender/model_catalogue.dart';
 import '../llm/llama_runner.dart';
 import '../llm/llm_providers.dart';
+import '../settings/settings_providers.dart';
+import '../settings/settings_service.dart';
+import '../voice/voice_providers.dart';
 import 'chat_message.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,9 +155,15 @@ class ChatController extends StateNotifier<ChatState> {
           _updateLastAssistantMessage(buffer.toString(), isStreaming: true);
         },
         onDone: () {
-          _updateLastAssistantMessage(buffer.toString(), isStreaming: false);
+          final response = buffer.toString();
+          _updateLastAssistantMessage(response, isStreaming: false);
           _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.ready;
           _maybeSetSessionTitle();
+          _maybeSaveMemory();
+          // Auto-speak if enabled
+          if (_ref.read(autoSpeakProvider)) {
+            _ref.read(voiceServiceProvider).speak(response);
+          }
         },
         onError: (e) {
           _updateLastAssistantMessage(
@@ -338,6 +347,43 @@ class ChatController extends StateNotifier<ChatState> {
     _setTitle(session, session.messages.where((m) => m.isUser).first.content);
   }
 
+  /// After the 6th message, generate a 1-sentence memory and persist it.
+  Future<void> _maybeSaveMemory() async {
+    final session = state.activeSession;
+    if (session == null) return;
+    final msgs = session.messages.where((m) => !m.isStreaming).toList();
+    if (msgs.length < 6) return;
+
+    final runner = _ref.read(llamaRunnerProvider);
+    if (runner.status != LlamaStatus.ready) return;
+
+    final exchange = msgs
+        .take(6)
+        .map((m) => '${m.isUser ? "User" : "AI"}: ${m.content.substring(0, m.content.length.clamp(0, 120))}')
+        .join('\n');
+
+    const memPrompt =
+        '<|im_start|>system\nYou write one-sentence memory summaries.<|im_end|>\n'
+        '<|im_start|>user\nSummarise this in ONE sentence for future reference:\n';
+
+    try {
+      final buf = StringBuffer();
+      await for (final tok
+          in runner.generate('$memPrompt$exchange<|im_end|>\n<|im_start|>assistant\n',
+              maxTokens: 40, temperature: 0.3)) {
+        buf.write(tok);
+        if (buf.length > 200) break;
+      }
+      final summary = buf.toString().trim();
+      if (summary.isNotEmpty) {
+        _ref.read(persistentMemoriesProvider.notifier).add(summary);
+        await _ref.read(settingsServiceProvider).addMemory(summary);
+      }
+    } catch (_) {
+      // Best-effort — don't crash if summary fails
+    }
+  }
+
   void _setTitle(ChatSession session, String raw) {
     // Re-fetch session to avoid stale reference
     final current = state.sessions.where((s) => s.id == session.id).firstOrNull;
@@ -375,11 +421,20 @@ class ChatController extends StateNotifier<ChatState> {
   // ── ChatML (default — works for SmolLM2, Qwen, Gemma, Phi, DeepSeek…) ─────
 
   String _buildChatMLPrompt(List<ChatMessage> history) {
-    const system =
+    final customPrompt = _ref.read(customSystemPromptProvider);
+    final memories = _ref.read(persistentMemoriesProvider);
+
+    final defaultSystem =
         'You are PintSizeAi, a private on-device AI assistant. '
         'You are helpful, concise, and honest. '
         'Everything you generate runs locally on the user\'s device — '
         'no data ever leaves the phone.';
+
+    var system = customPrompt ?? defaultSystem;
+    if (memories.isNotEmpty) {
+      system +=
+          '\n\nMemory from past conversations:\n${memories.take(5).map((m) => '- $m').join('\n')}';
+    }
 
     final buf = StringBuffer();
     buf.write('<|im_start|>system\n$system<|im_end|>\n');

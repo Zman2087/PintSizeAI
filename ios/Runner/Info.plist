@@ -29,7 +29,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>PintSizeAi needs camera access so you can take photos to attach to messages.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>PintSizeAi needs microphone access for Siri voice integration.</string>
+	<string>PintSizeAi needs microphone access for voice input and Siri integration.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>PintSizeAi uses on-device speech recognition to convert your voice to text so you can speak to the AI hands-free.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>PintSizeAi saves AI-generated images to your Camera Roll.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
