@@ -22,6 +22,9 @@ import AppIntents
         allowHeadlessExecution: true  // critical for background Siri handling
     )
 
+    // Strong reference — keeps the plugin (and LlamaEngine) alive for the app lifetime
+    private var llamaPlugin: LlamaPlugin?
+
     override func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -36,6 +39,9 @@ import AppIntents
         if #available(iOS 16.2, *) {
             ImageGenPlugin.register(with: flutterEngine.binaryMessenger)
         }
+
+        // LLM inference — llama.cpp bridge
+        llamaPlugin = LlamaPlugin.register(with: flutterEngine.binaryMessenger)
 
         // ── Register Siri method channel ─────────────────────────────────
         let siriChannel = FlutterMethodChannel(

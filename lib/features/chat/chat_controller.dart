@@ -304,40 +304,75 @@ class ChatController extends StateNotifier<ChatState> {
     );
   }
 
-  /// Builds a simple conversational prompt for llama.cpp instruct models.
+  /// Builds the full inference prompt, applying the correct chat template
+  /// for the loaded model's family.
+  ///
+  ///  • Llama 3.x → Llama 3 header format   (<|start_header_id|>…)
+  ///  • Everything else → ChatML             (<|im_start|>…)
+  ///
+  /// ChatML works for SmolLM2, Qwen 2.x, Gemma 3, Phi-4, DeepSeek-R1,
+  /// Mistral and most other instruction-tuned models in the catalogue.
   String _buildPrompt(List<ChatMessage> history, String latestUser) {
+    final family = _ref.read(llamaRunnerProvider).loadedModel?.family ?? '';
+    return family == 'llama'
+        ? _buildLlama3Prompt(history)
+        : _buildChatMLPrompt(history);
+  }
+
+  // ── ChatML (default — works for SmolLM2, Qwen, Gemma, Phi, DeepSeek…) ─────
+
+  String _buildChatMLPrompt(List<ChatMessage> history) {
+    const system =
+        'You are PintSizeAi, a private on-device AI assistant. '
+        'You are helpful, concise, and honest. '
+        'Everything you generate runs locally on the user\'s device — '
+        'no data ever leaves the phone.';
+
     final buf = StringBuffer();
-    buf.writeln('<|begin_of_text|>');
-    buf.writeln('<|start_header_id|>system<|end_header_id|>');
-    buf.writeln(
-      'You are PintSizeAi, a private on-device AI assistant. '
-      'You are helpful, concise, and honest. '
-      'Your responses are processed locally on the user\'s device — no data leaves the phone.',
-    );
-    buf.writeln('<|eot_id|>');
+    buf.write('<|im_start|>system\n$system<|im_end|>\n');
 
     for (final msg in history.where((m) => !m.isStreaming || m.isUser)) {
       final role = msg.isUser ? 'user' : 'assistant';
-      buf.writeln('<|start_header_id|>$role<|end_header_id|>');
-      buf.writeln(msg.content);
-      buf.writeln('<|eot_id|>');
+      buf.write('<|im_start|>$role\n${msg.content}<|im_end|>\n');
     }
 
-    buf.writeln('<|start_header_id|>assistant<|end_header_id|>');
+    buf.write('<|im_start|>assistant\n');
     return buf.toString();
   }
 
-  String _buildSiriPrompt(String question) =>
-      '<|begin_of_text|>'
-      '<|start_header_id|>system<|end_header_id|>'
-      'You are PintSizeAi, answering a Siri voice question. '
-      'Reply in 1-3 plain sentences, no bullet points, no markdown. '
-      'Be direct and concise — your answer will be spoken aloud.'
-      '<|eot_id|>'
-      '<|start_header_id|>user<|end_header_id|>'
-      '$question'
-      '<|eot_id|>'
-      '<|start_header_id|>assistant<|end_header_id|>';
+  // ── Llama 3 format (Llama 3.2 1B/3B, Llama 3.3 8B, Llama 3.1 8B) ─────────
+
+  String _buildLlama3Prompt(List<ChatMessage> history) {
+    const system =
+        'You are PintSizeAi, a private on-device AI assistant. '
+        'You are helpful, concise, and honest. '
+        'Everything you generate runs locally on the user\'s device — '
+        'no data ever leaves the phone.';
+
+    final buf = StringBuffer();
+    buf.write('<|begin_of_text|>');
+    buf.write('<|start_header_id|>system<|end_header_id|>\n$system<|eot_id|>');
+
+    for (final msg in history.where((m) => !m.isStreaming || m.isUser)) {
+      final role = msg.isUser ? 'user' : 'assistant';
+      buf.write('<|start_header_id|>$role<|end_header_id|>\n${msg.content}<|eot_id|>');
+    }
+
+    buf.write('<|start_header_id|>assistant<|end_header_id|>\n');
+    return buf.toString();
+  }
+
+  // ── Siri prompts (always ChatML — Siri always uses the loaded model) ────────
+
+  String _buildSiriPrompt(String question) {
+    const system =
+        'You are PintSizeAi, answering a Siri voice question. '
+        'Reply in 1-3 plain sentences, no bullet points, no markdown. '
+        'Be direct and concise — your answer will be spoken aloud.';
+    return '<|im_start|>system\n$system<|im_end|>\n'
+        '<|im_start|>user\n$question<|im_end|>\n'
+        '<|im_start|>assistant\n';
+  }
 
   String _uid() =>
       DateTime.now().microsecondsSinceEpoch.toString() +
