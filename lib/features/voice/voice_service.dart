@@ -1,53 +1,47 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
-/// Bridges to VoicePlugin.swift for STT + TTS.
 class VoiceService {
   static const _method = MethodChannel('pintsize/voice');
   static const _events = EventChannel('pintsize/voice_text');
 
   StreamSubscription<dynamic>? _sub;
+  final _ctrl = StreamController<VoiceEvent>.broadcast();
 
-  // ── Speech-to-text ──────────────────────────────────────────────────────────
+  /// Unified event stream: transcripts, speaking_done, listening_stopped.
+  Stream<VoiceEvent> get events => _ctrl.stream;
 
-  /// Starts listening and streams transcript updates.
-  /// Each event is a [VoiceTranscript] with text + isFinal flag.
-  Stream<VoiceTranscript> startListening() {
-    final ctrl = StreamController<VoiceTranscript>.broadcast();
-
-    _method.invokeMethod<void>('startListening').catchError((e) {
-      ctrl.addError(e);
-      ctrl.close();
-    });
-
+  VoiceService() {
     _sub = _events.receiveBroadcastStream().listen(
-      (event) {
-        if (event is Map) {
-          ctrl.add(VoiceTranscript(
-            text: event['text'] as String? ?? '',
-            isFinal: event['isFinal'] as bool? ?? false,
-          ));
+      (raw) {
+        if (raw is Map) {
+          final type = raw['type'] as String? ?? '';
+          switch (type) {
+            case 'transcript':
+              _ctrl.add(VoiceTranscriptEvent(
+                text: raw['text'] as String? ?? '',
+                isFinal: raw['isFinal'] as bool? ?? false,
+              ));
+            case 'speaking_done':
+              _ctrl.add(const VoiceSpeakingDoneEvent());
+            case 'listening_stopped':
+              _ctrl.add(const VoiceListeningStoppedEvent());
+          }
         }
       },
-      onError: ctrl.addError,
-      onDone: ctrl.close,
+      onError: _ctrl.addError,
     );
+  }
 
-    ctrl.onCancel = () {
-      _sub?.cancel();
+  // ── STT ──────────────────────────────────────────────────────────────────────
+
+  Future<void> startListening() =>
+      _method.invokeMethod<void>('startListening');
+
+  Future<void> stopListening() =>
       _method.invokeMethod<void>('stopListening');
-    };
 
-    return ctrl.stream;
-  }
-
-  Future<void> stopListening() async {
-    await _sub?.cancel();
-    _sub = null;
-    await _method.invokeMethod<void>('stopListening');
-  }
-
-  // ── Text-to-speech ──────────────────────────────────────────────────────────
+  // ── TTS ──────────────────────────────────────────────────────────────────────
 
   Future<void> speak(String text) =>
       _method.invokeMethod<void>('speak', text);
@@ -58,13 +52,31 @@ class VoiceService {
   Future<bool> get isSpeaking async =>
       await _method.invokeMethod<bool>('isSpeaking') ?? false;
 
-  /// rate: 0.0 (slow) → 1.0 (fast). Default ≈ 0.5.
   Future<void> setRate(double rate) =>
       _method.invokeMethod<void>('setRate', rate);
+
+  void dispose() {
+    _sub?.cancel();
+    _ctrl.close();
+  }
 }
 
-class VoiceTranscript {
-  const VoiceTranscript({required this.text, required this.isFinal});
+// ── Event types ───────────────────────────────────────────────────────────────
+
+sealed class VoiceEvent {
+  const VoiceEvent();
+}
+
+class VoiceTranscriptEvent extends VoiceEvent {
+  const VoiceTranscriptEvent({required this.text, required this.isFinal});
   final String text;
   final bool isFinal;
+}
+
+class VoiceSpeakingDoneEvent extends VoiceEvent {
+  const VoiceSpeakingDoneEvent();
+}
+
+class VoiceListeningStoppedEvent extends VoiceEvent {
+  const VoiceListeningStoppedEvent();
 }

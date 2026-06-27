@@ -26,6 +26,7 @@ import 'history_drawer.dart';
 import 'image_gen_screen.dart';
 import 'model_picker_sheet.dart';
 import 'settings_screen.dart';
+import 'voice_mode_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Slash commands
@@ -104,7 +105,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _webSearchEnabled = false;
   bool _isListening = false;
   String _partialTranscript = '';
-  StreamSubscription<VoiceTranscript>? _voiceSub;
+  StreamSubscription<VoiceEvent>? _voiceSub;
   final _webSearch = WebSearchService();
   final _media = MediaService();
 
@@ -791,15 +792,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _inputCtrl.clear();
     });
 
-    _voiceSub = svc.startListening().listen(
-      (t) {
-        setState(() => _partialTranscript = t.text);
-        _inputCtrl.text = t.text;
-        _inputCtrl.selection = TextSelection.collapsed(
-            offset: _inputCtrl.text.length);
-        if (t.isFinal) {
-          _stopListening();
-          if (t.text.trim().isNotEmpty) _send();
+    svc.startListening();
+
+    _voiceSub?.cancel();
+    _voiceSub = svc.events.listen(
+      (evt) {
+        if (evt is VoiceTranscriptEvent) {
+          setState(() => _partialTranscript = evt.text);
+          _inputCtrl.text = evt.text;
+          _inputCtrl.selection = TextSelection.collapsed(
+              offset: _inputCtrl.text.length);
+          if (evt.isFinal) {
+            _stopListening();
+            if (evt.text.trim().isNotEmpty) _send();
+          }
+        } else if (evt is VoiceListeningStoppedEvent) {
+          setState(() => _isListening = false);
         }
       },
       onError: (_) => setState(() => _isListening = false),
@@ -879,6 +887,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onSettingsTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const SettingsScreen()),
         ),
+        onVoiceModeTap: () => VoiceModeScreen.open(context),
       ),
       body: Column(
         children: [
@@ -945,12 +954,14 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.llamaStatus,
     required this.onModelTap,
     required this.onSettingsTap,
+    required this.onVoiceModeTap,
   });
 
   final ModelVariant? activeModel;
   final LlamaStatus llamaStatus;
   final VoidCallback onModelTap;
   final VoidCallback onSettingsTap;
+  final VoidCallback onVoiceModeTap;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -994,6 +1005,11 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.record_voice_over_outlined, size: 20),
+          tooltip: 'Voice conversation',
+          onPressed: onVoiceModeTap,
+        ),
         IconButton(
           icon: const Icon(Icons.edit_outlined, size: 20),
           tooltip: 'New chat',

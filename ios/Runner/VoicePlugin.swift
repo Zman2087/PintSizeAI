@@ -5,13 +5,20 @@ import AVFoundation
 /// Flutter plugin for voice input (STT) and voice output (TTS).
 ///
 /// MethodChannel   pintsize/voice       — startListening, stopListening,
-///                                        speak, stopSpeaking, setRate
-/// EventChannel    pintsize/voice_text  — streams partial + final transcripts
-///                                        as {text: String, isFinal: Bool}
-final class VoicePlugin: NSObject {
+///                                        speak, stopSpeaking, setRate, isSpeaking
+/// EventChannel    pintsize/voice_text  — emits maps:
+///                   {type:"transcript", text:String, isFinal:Bool}
+///                   {type:"speaking_done"}
+///                   {type:"listening_stopped"}
+final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
+
+    // Keep a strong ref to self so the plugin survives after register() returns
+    private static var instance: VoicePlugin?
 
     static func register(with messenger: FlutterBinaryMessenger) {
         let plugin = VoicePlugin()
+        instance = plugin
+        plugin.synthesizer.delegate = plugin
         FlutterMethodChannel(name: "pintsize/voice", binaryMessenger: messenger)
             .setMethodCallHandler(plugin.handleMethod(_:result:))
         FlutterEventChannel(name: "pintsize/voice_text", binaryMessenger: messenger)
@@ -46,7 +53,7 @@ final class VoicePlugin: NSObject {
             }
 
         case "stopListening":
-            stopListening()
+            stopListening(sendEvent: true)
             result(nil)
 
         case "speak":
@@ -86,7 +93,7 @@ final class VoicePlugin: NSObject {
     }
 
     private func startListening(result: @escaping FlutterResult) {
-        stopListening()
+        stopListening(sendEvent: false)
 
         let session = AVAudioSession.sharedInstance()
         do {
@@ -124,34 +131,36 @@ final class VoicePlugin: NSObject {
                 let text = res.bestTranscription.formattedString
                 let isFinal = res.isFinal
                 DispatchQueue.main.async {
-                    self.eventSink?([
-                        "text": text,
-                        "isFinal": isFinal,
-                    ])
+                    self.eventSink?(["type": "transcript", "text": text, "isFinal": isFinal])
                 }
-                if isFinal { self.stopListening() }
+                if isFinal { self.stopListening(sendEvent: true) }
             } else if let err = err {
                 DispatchQueue.main.async {
-                    self.eventSink?(FlutterError(code: "STT_ERROR",
-                                                  message: err.localizedDescription,
-                                                  details: nil))
+                    self.eventSink?(["type": "listening_stopped"])
                 }
-                self.stopListening()
+                self.stopListening(sendEvent: false)
             }
         }
 
         result(nil)
     }
 
-    private func stopListening() {
+    private func stopListening(sendEvent: Bool) {
         audioEngine.stop()
-        audioEngine.inputNode.removeTap(onBus: 0)
+        if audioEngine.inputNode.numberOfInputs > 0 {
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
         request?.endAudio()
         request = nil
         task?.cancel()
         task = nil
         try? AVAudioSession.sharedInstance().setActive(false,
               options: .notifyOthersOnDeactivation)
+        if sendEvent {
+            DispatchQueue.main.async { [weak self] in
+                self?.eventSink?(["type": "listening_stopped"])
+            }
+        }
     }
 
     // ── TTS implementation ────────────────────────────────────────────────────
@@ -169,6 +178,15 @@ final class VoicePlugin: NSObject {
         utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.identifier)
         synthesizer.speak(utterance)
     }
+
+    // ── AVSpeechSynthesizerDelegate ───────────────────────────────────────────
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
+                           didFinish utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async { [weak self] in
+            self?.eventSink?(["type": "speaking_done"])
+        }
+    }
 }
 
 // ── EventChannel stream handler ──────────────────────────────────────────────
@@ -181,7 +199,7 @@ extension VoicePlugin: FlutterStreamHandler {
     }
 
     func onCancel(withArguments arguments: Any?) -> FlutterError? {
-        stopListening()
+        stopListening(sendEvent: false)
         eventSink = nil
         return nil
     }
