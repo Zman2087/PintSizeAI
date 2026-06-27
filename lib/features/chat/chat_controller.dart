@@ -103,6 +103,7 @@ class ChatController extends StateNotifier<ChatState> {
     String text, {
     ModelVariant? model,
     List<ChatAttachment> attachments = const [],
+    String? displayText, // shown in the bubble; defaults to text
   }) async {
     if (text.trim().isEmpty && attachments.isEmpty) return;
 
@@ -117,11 +118,11 @@ class ChatController extends StateNotifier<ChatState> {
       return;
     }
 
-    // 1. Add user message
+    // 1. Add user message (show displayText to the user, send full text to LLM)
     final userMsg = ChatMessage(
       id: _uid(),
       role: MessageRole.user,
-      content: text.trim(),
+      content: (displayText ?? text).trim(),
       timestamp: DateTime.now(),
       attachments: attachments,
     );

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../features/device_recommender/device_profile.dart';
 import '../features/device_recommender/model_catalogue.dart';
+import '../features/device_recommender/recommender_providers.dart';
 import '../features/image_gen/image_gen_providers.dart';
 import '../features/models/model_providers.dart';
 import '../features/settings/settings_providers.dart';
@@ -69,6 +71,12 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
           ],
+
+          // Device capabilities
+          const SizedBox(height: 8),
+          _SectionHeader('Your Device'),
+          _DeviceCapabilitiesCard(),
+          const SizedBox(height: 8),
 
           // Privacy
           _SectionHeader('Privacy'),
@@ -499,6 +507,119 @@ class _LicenceEntry extends StatelessWidget {
           Text('$licence · $author',
               style: TextStyle(
                   color: AppColors.textDim, fontSize: 12, height: 1.4)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Device capabilities card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DeviceCapabilitiesCard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(deviceProfileProvider);
+
+    return profileAsync.when(
+      loading: () => const _Card(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(12),
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+      error: (_, __) => const _Card(
+        child: _CapRow(
+          icon: Icons.warning_amber_outlined,
+          title: 'Could not read device info',
+        ),
+      ),
+      data: (profile) => _Card(
+        child: Column(
+          children: [
+            _CapRow(
+              icon: Icons.smartphone_outlined,
+              title: profile.deviceName,
+              sub: 'iOS ${profile.osVersion}',
+            ),
+            _CapRow(
+              icon: Icons.memory_outlined,
+              title: 'RAM: ${profile.totalRamGb} GB total · ${profile.freeRamGb} GB free',
+              sub: 'Model budget: up to ${(profile.safeModelRamBytes / 1e9).toStringAsFixed(1)} GB',
+            ),
+            _CapRow(
+              icon: Icons.speed_outlined,
+              title: 'Chip: ${_chipLabel(profile.chipTier)}',
+              sub: profile.hasGpuAcceleration
+                  ? 'GPU acceleration available'
+                  : 'CPU-only inference',
+            ),
+            _CapRow(
+              icon: Icons.storage_outlined,
+              title: 'Storage free: ${(profile.freeStorageBytes / 1e9).toStringAsFixed(1)} GB',
+            ),
+            _CapRow(
+              icon: Icons.lightbulb_outline,
+              title: _tierSummary(profile.chipTier),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _chipLabel(ChipTier tier) => switch (tier) {
+        ChipTier.flagship => 'Flagship (A17 Pro / A18 class)',
+        ChipTier.highEnd => 'High-end (A15 / A16)',
+        ChipTier.midRange => 'Mid-range (A14 / A13)',
+        ChipTier.entry => 'Entry-level',
+        ChipTier.tooSlow => 'Older chip',
+      };
+
+  String _tierSummary(ChipTier tier) => switch (tier) {
+        ChipTier.flagship =>
+          'Best for models up to 8B params (Q4). Real-time generation.',
+        ChipTier.highEnd =>
+          'Good for models up to 3B params (Q4). ~10–20 tok/s.',
+        ChipTier.midRange =>
+          'Best with 1–2B models (Q4). Expect 5–10 tok/s.',
+        ChipTier.entry =>
+          'Stick to 135M–360M models. Larger models may be slow.',
+        ChipTier.tooSlow =>
+          'Very old device — only tiny models (135M) will run usably.',
+      };
+}
+
+class _CapRow extends StatelessWidget {
+  const _CapRow({required this.icon, required this.title, this.sub});
+  final IconData icon;
+  final String title;
+  final String? sub;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppColors.textMuted),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTypography.modelName),
+                if (sub != null) ...[
+                  const SizedBox(height: 2),
+                  Text(sub!, style: AppTypography.modelDesc),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

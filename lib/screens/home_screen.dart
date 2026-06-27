@@ -15,6 +15,7 @@ import '../features/llm/llm_providers.dart';
 import '../features/models/model_download_service.dart';
 import '../features/models/model_providers.dart';
 import '../features/settings/settings_providers.dart';
+import '../features/web_search/web_search_service.dart';
 import '../theme/app_widgets.dart';
 import '../theme/theme.dart';
 import 'history_drawer.dart';
@@ -96,6 +97,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _imagePicker = ImagePicker();
   final List<ChatAttachment> _pendingAttachments = [];
   List<_Cmd> _commandSuggestions = [];
+  bool _webSearchEnabled = false;
+  final _webSearch = WebSearchService();
 
   @override
   void initState() {
@@ -220,7 +223,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
 
-    ref.read(chatControllerProvider.notifier).send(text, attachments: attachments);
+    if (_webSearchEnabled) {
+      _sendWithWebSearch(text, attachments: attachments);
+    } else {
+      ref.read(chatControllerProvider.notifier).send(text, attachments: attachments);
+    }
+    _scrollToBottom();
+  }
+
+  Future<void> _sendWithWebSearch(String text,
+      {List<ChatAttachment> attachments = const []}) async {
+    final context = await _webSearch.search(text);
+    final enriched = context != null ? '$context\n\nUser: $text' : text;
+    ref
+        .read(chatControllerProvider.notifier)
+        .send(enriched, displayText: text, attachments: attachments);
     _scrollToBottom();
   }
 
@@ -769,6 +786,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onSend: _send,
             onStop: _stop,
             onAddTap: _showAttachmentPicker,
+            webSearchEnabled: _webSearchEnabled,
+            onToggleWebSearch: () =>
+                setState(() => _webSearchEnabled = !_webSearchEnabled),
             onRemoveAttachment: (i) =>
                 setState(() => _pendingAttachments.removeAt(i)),
           ),
@@ -1260,6 +1280,8 @@ class _ChatInput extends StatelessWidget {
     required this.onStop,
     required this.onAddTap,
     required this.onRemoveAttachment,
+    this.webSearchEnabled = false,
+    this.onToggleWebSearch,
   });
 
   final TextEditingController controller;
@@ -1270,6 +1292,8 @@ class _ChatInput extends StatelessWidget {
   final VoidCallback onStop;
   final VoidCallback onAddTap;
   final ValueChanged<int> onRemoveAttachment;
+  final bool webSearchEnabled;
+  final VoidCallback? onToggleWebSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -1279,9 +1303,10 @@ class _ChatInput extends StatelessWidget {
       onSend: onSend,
       onStop: onStop,
       onAddTap: onAddTap,
-      pendingAttachmentNames:
-          pendingAttachments.map((a) => a.name).toList(),
+      pendingAttachments: pendingAttachments,
       onRemoveAttachment: onRemoveAttachment,
+      webSearchEnabled: webSearchEnabled,
+      onToggleWebSearch: onToggleWebSearch,
       placeholder: modelLoaded ? 'Message' : 'Message  ·  /image  ·  /video',
     );
   }

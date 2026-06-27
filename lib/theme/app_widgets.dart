@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
+import 'package:video_player/video_player.dart';
 import '../features/attachments/attachment.dart';
 import '../theme/theme.dart';
+import '../widgets/message_content.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ModelIcon
@@ -211,7 +214,7 @@ class AssistantMessage extends StatelessWidget {
                 const SizedBox(height: 8),
               ],
               if (text.isNotEmpty) ...[
-                Text(text, style: AppTypography.messageBody),
+                MessageContent(text, isStreaming: false),
                 const SizedBox(height: 8),
               ],
               _ActionRow(),
@@ -345,7 +348,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// The bottom input bar.
-///   [+]  [attachment chips] [Message...]  [send/stop]
+///   [+]  [attachment previews] [Message...]  [web] [send/stop]
 class ChatInputBox extends StatelessWidget {
   const ChatInputBox({
     super.key,
@@ -354,9 +357,13 @@ class ChatInputBox extends StatelessWidget {
     this.onSend,
     this.onStop,
     this.onAddTap,
-    this.pendingAttachmentNames = const [],
+    this.pendingAttachments = const [],
     this.onRemoveAttachment,
     this.placeholder = 'Message',
+    this.webSearchEnabled = false,
+    this.onToggleWebSearch,
+    // Legacy — kept for callers that only have names
+    this.pendingAttachmentNames = const [],
   });
 
   final TextEditingController controller;
@@ -364,12 +371,29 @@ class ChatInputBox extends StatelessWidget {
   final VoidCallback? onSend;
   final VoidCallback? onStop;
   final VoidCallback? onAddTap;
-  final List<String> pendingAttachmentNames; // display names for chips
-  final ValueChanged<int>? onRemoveAttachment; // index to remove
+  final List<ChatAttachment> pendingAttachments;
+  final ValueChanged<int>? onRemoveAttachment;
   final String placeholder;
+  final bool webSearchEnabled;
+  final VoidCallback? onToggleWebSearch;
+  // Legacy — used when caller hasn't migrated yet
+  final List<String> pendingAttachmentNames;
+
+  List<ChatAttachment> get _effectiveAttachments {
+    if (pendingAttachments.isNotEmpty) return pendingAttachments;
+    // Fallback: wrap names as file attachments so they still show
+    return pendingAttachmentNames
+        .map((n) => ChatAttachment(
+              id: n,
+              type: AttachmentType.file,
+              name: n,
+            ))
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final attachments = _effectiveAttachments;
     return SafeArea(
       top: false,
       child: Padding(
@@ -391,16 +415,16 @@ class ChatInputBox extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Attachment chips row (shown when attachments are pending)
-              if (pendingAttachmentNames.isNotEmpty) ...[
+              // Attachment preview row
+              if (attachments.isNotEmpty) ...[
                 SizedBox(
-                  height: 34,
+                  height: 72,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: pendingAttachmentNames.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 6),
-                    itemBuilder: (_, i) => _AttachmentChip(
-                      name: pendingAttachmentNames[i],
+                    itemCount: attachments.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, i) => _PendingAttachmentPreview(
+                      attachment: attachments[i],
                       onRemove: () => onRemoveAttachment?.call(i),
                     ),
                   ),
@@ -434,6 +458,23 @@ class ChatInputBox extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  // Web search toggle
+                  GestureDetector(
+                    onTap: onToggleWebSearch,
+                    child: Tooltip(
+                      message: webSearchEnabled
+                          ? 'Web search on'
+                          : 'Web search off',
+                      child: Icon(
+                        Icons.language_outlined,
+                        size: 20,
+                        color: webSearchEnabled
+                            ? AppColors.accentGreen
+                            : AppColors.textMuted,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   isGenerating
                       ? _StopButton(onTap: onStop)
@@ -448,9 +489,137 @@ class ChatInputBox extends StatelessWidget {
   }
 }
 
-class _AttachmentChip extends StatelessWidget {
-  const _AttachmentChip({required this.name, required this.onRemove});
-  final String name;
+/// Shows a rich preview for a pending attachment in the input bar.
+/// Images → actual thumbnail. Videos → dark frame with play icon.
+/// Files → pill chip.
+class _PendingAttachmentPreview extends StatelessWidget {
+  const _PendingAttachmentPreview({
+    required this.attachment,
+    required this.onRemove,
+  });
+  final ChatAttachment attachment;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    if (attachment.isImage) {
+      return _ImagePreview(attachment: attachment, onRemove: onRemove);
+    }
+    if (attachment.isVideo) {
+      return _VideoPreview(attachment: attachment, onRemove: onRemove);
+    }
+    return _FileChip(attachment: attachment, onRemove: onRemove);
+  }
+}
+
+class _ImagePreview extends StatelessWidget {
+  const _ImagePreview({required this.attachment, required this.onRemove});
+  final ChatAttachment attachment;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget image;
+    if (attachment.thumbnailBytes != null) {
+      image = Image.memory(attachment.thumbnailBytes!, fit: BoxFit.cover);
+    } else if (attachment.localPath != null) {
+      image = Image.network(attachment.localPath!, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              const Icon(Icons.image_outlined, color: AppColors.textMuted));
+    } else {
+      image = const Icon(Icons.image_outlined, color: AppColors.textMuted);
+    }
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: SizedBox(width: 72, height: 72, child: image),
+        ),
+        Positioned(
+          top: -6,
+          right: -6,
+          child: GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: const BoxDecoration(
+                color: AppColors.surfaceBase,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, size: 13, color: AppColors.textPrimary),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _VideoPreview extends StatelessWidget {
+  const _VideoPreview({required this.attachment, required this.onRemove});
+  final ChatAttachment attachment;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F1D38),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.borderDefault),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.videocam_outlined,
+                  color: Color(0xFF7E57C2), size: 24),
+              const SizedBox(height: 2),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  attachment.name,
+                  style: const TextStyle(
+                      fontSize: 9, color: AppColors.textMuted),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          top: -6,
+          right: -6,
+          child: GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: const BoxDecoration(
+                color: AppColors.surfaceBase,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, size: 13, color: AppColors.textPrimary),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FileChip extends StatelessWidget {
+  const _FileChip({required this.attachment, required this.onRemove});
+  final ChatAttachment attachment;
   final VoidCallback onRemove;
 
   @override
@@ -470,7 +639,7 @@ class _AttachmentChip extends StatelessWidget {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 100),
             child: Text(
-              name,
+              attachment.name,
               style: AppTypography.badge,
               overflow: TextOverflow.ellipsis,
             ),
@@ -764,6 +933,9 @@ class AttachmentThumbnail extends StatelessWidget {
     if (attachment.isImage && attachment.localPath != null) {
       return _ImageThumb(path: attachment.localPath!);
     }
+    if (attachment.isVideo && attachment.localPath != null) {
+      return _VideoThumb(path: attachment.localPath!);
+    }
     if (attachment.isVideo) {
       return _FilePill(
         icon: Icons.video_file_outlined,
@@ -909,6 +1081,93 @@ class _FilePill extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _VideoThumb — inline video player in message bubbles
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _VideoThumb extends StatefulWidget {
+  const _VideoThumb({required this.path});
+  final String path;
+
+  @override
+  State<_VideoThumb> createState() => _VideoThumbState();
+}
+
+class _VideoThumbState extends State<_VideoThumb> {
+  late VideoPlayerController _ctrl;
+  bool _initialized = false;
+  bool _playing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = VideoPlayerController.file(File(widget.path))
+      ..initialize().then((_) {
+        if (mounted) setState(() => _initialized = true);
+      });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _togglePlay() {
+    setState(() {
+      _playing = !_playing;
+      _playing ? _ctrl.play() : _ctrl.pause();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _initialized ? _togglePlay : null,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 200,
+          height: 140,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_initialized)
+                FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _ctrl.value.size.width,
+                    height: _ctrl.value.size.height,
+                    child: VideoPlayer(_ctrl),
+                  ),
+                )
+              else
+                Container(color: const Color(0xFF0F1D38)),
+              if (!_playing || !_initialized)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _initialized
+                          ? Icons.play_arrow
+                          : Icons.hourglass_empty,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

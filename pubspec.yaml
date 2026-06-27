@@ -48,6 +48,15 @@ dependencies:
   # Save images to camera roll
   gal: ^1.3.0
 
+  # Markdown rendering (bold, italic, lists, code blocks in AI responses)
+  flutter_markdown: ^0.7.4
+
+  # In-app WebView — sandbox for running HTML/CSS/JS the AI generates
+  webview_flutter: ^4.9.0
+
+  # Inline video playback for video attachments
+  video_player: ^2.9.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
