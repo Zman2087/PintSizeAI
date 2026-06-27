@@ -2,16 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>PintSizeAi needs access to your photo library so you can attach images and videos to messages.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>PintSizeAi saves AI-generated images to your Camera Roll.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>PintSizeAi needs camera access so you can take photos to attach to messages.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>PintSizeAi needs microphone access for Siri voice integration.</string>
-	<key>CFBundleDisplayName</key>
-	<string>PintSizeAi</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -36,6 +26,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>PintSizeAi needs camera access so you can take photos to attach to messages.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>PintSizeAi needs microphone access for Siri voice integration.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>PintSizeAi saves AI-generated images to your Camera Roll.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>PintSizeAi needs access to your photo library so you can attach images and videos to messages.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

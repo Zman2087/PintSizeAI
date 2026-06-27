@@ -43,6 +43,7 @@ final class LlamaPlugin: NSObject {
             // Load on a background thread — can take several seconds for large models
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
+                    // Swift bridges the ObjC NSError** pattern to throws automatically
                     try self.engine.loadModel(atPath: path, contextLength: contextLength)
                     DispatchQueue.main.async { result(nil) }
                 } catch {

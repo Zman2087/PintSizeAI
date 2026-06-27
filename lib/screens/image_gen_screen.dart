@@ -23,6 +23,8 @@ class ImageGenScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _InfoCard(status: status),
+          const SizedBox(height: 12),
+          const _PerformanceWarning(),
           const SizedBox(height: 20),
           _SectionHeader('Available Models'),
           const SizedBox(height: 10),
@@ -291,6 +293,50 @@ class _ModelCard extends ConsumerWidget {
                     .copyWith(color: const Color(0xFFE57373)),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PerformanceWarning extends StatelessWidget {
+  const _PerformanceWarning();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF9800).withAlpha(20),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFF9800).withAlpha(60)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.timer_outlined,
+              size: 18, color: Color(0xFFFF9800)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Performance notice',
+                    style: AppTypography.modelName
+                        .copyWith(color: const Color(0xFFFF9800))),
+                const SizedBox(height: 4),
+                Text(
+                  'Local image and video generation is highly hardware-dependent. '
+                  'Rendering may take 10 seconds to several minutes depending on '
+                  'your device\'s chip and available memory. iPhone 15 Pro and newer '
+                  'offer the best experience.',
+                  style: AppTypography.modelDesc,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

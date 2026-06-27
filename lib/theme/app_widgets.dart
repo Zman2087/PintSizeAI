@@ -111,7 +111,13 @@ class _OnDeviceChipState extends State<OnDeviceChip>
             ),
           ),
           const SizedBox(width: 6),
-          Text(widget.label, style: AppTypography.badge),
+          Flexible(
+            child: Text(
+              widget.label,
+              style: AppTypography.badge,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );

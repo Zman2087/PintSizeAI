@@ -289,15 +289,67 @@ class ChatController extends StateNotifier<ChatState> {
     final session = state.activeSession;
     if (session == null || session.title != null) return;
     final userMsgs = session.messages.where((m) => m.isUser).toList();
+    final assistantMsgs = session.messages.where((m) => m.isAssistant && !m.isStreaming).toList();
     if (userMsgs.isEmpty) return;
 
-    final title = userMsgs.first.content;
+    // After the first real exchange, generate a smart title via the model.
+    // Fall back to the first message text if no model is loaded.
+    if (userMsgs.length >= 1 && assistantMsgs.isNotEmpty) {
+      _generateTitle(session);
+    }
+  }
+
+  Future<void> _generateTitle(ChatSession session) async {
+    final runner = _ref.read(llamaRunnerProvider);
+    if (runner.status != LlamaStatus.ready) {
+      // Fallback: use first user message
+      _setTitle(session, session.messages.where((m) => m.isUser).first.content);
+      return;
+    }
+
+    // Build a minimal prompt asking for a 3-5 word title
+    final exchange = session.messages
+        .where((m) => !m.isStreaming)
+        .take(4)
+        .map((m) => '${m.isUser ? "User" : "Assistant"}: ${m.content}')
+        .join('\n');
+
+    final titlePrompt =
+        '<|im_start|>system\nYou are a title generator. '
+        'Reply with ONLY a short title of 3 to 5 words. No quotes, no punctuation at the end.<|im_end|>\n'
+        '<|im_start|>user\nSummarize this conversation in 3-5 words:\n$exchange<|im_end|>\n'
+        '<|im_start|>assistant\n';
+
+    try {
+      final buffer = StringBuffer();
+      await for (final tok in runner.generate(titlePrompt, maxTokens: 20, temperature: 0.3)) {
+        buffer.write(tok);
+        if (buffer.length > 60) break;
+      }
+      final raw = buffer.toString().trim();
+      if (raw.isNotEmpty) {
+        _setTitle(session, raw);
+        return;
+      }
+    } catch (_) {
+      // ignored — fall through to fallback
+    }
+    _setTitle(session, session.messages.where((m) => m.isUser).first.content);
+  }
+
+  void _setTitle(ChatSession session, String raw) {
+    // Re-fetch session to avoid stale reference
+    final current = state.sessions.where((s) => s.id == session.id).firstOrNull;
+    if (current == null || current.title != null) return;
+
+    final clean = raw.replaceAll(RegExp(r'["""''\n]'), '').trim();
+    final title = clean.length > 50 ? '${clean.substring(0, 50)}…' : clean;
     final updated = ChatSession(
-      id: session.id,
-      createdAt: session.createdAt,
-      title: title.length > 40 ? '${title.substring(0, 40)}…' : title,
-      modelId: session.modelId,
-      messages: session.messages,
+      id: current.id,
+      createdAt: current.createdAt,
+      title: title,
+      modelId: current.modelId,
+      messages: current.messages,
     );
     state = state.copyWith(
       sessions: state.sessions.map((s) => s.id == session.id ? updated : s).toList(),
