@@ -82,4 +82,68 @@ class SettingsService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kAutoSpeak, value);
   }
+
+  // ── Sampling params ─────────────────────────────────────────────────────────
+
+  static const _kTemperature = 'llm_temperature';
+  static const _kTopP = 'llm_top_p';
+  static const _kMaxTokens = 'llm_max_tokens';
+
+  Future<double> getTemperature() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_kTemperature) ?? 0.7;
+  }
+
+  Future<void> setTemperature(double v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_kTemperature, v);
+  }
+
+  Future<double> getTopP() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_kTopP) ?? 0.9;
+  }
+
+  Future<void> setTopP(double v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_kTopP, v);
+  }
+
+  Future<int> getMaxTokens() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_kMaxTokens) ?? 512;
+  }
+
+  Future<void> setMaxTokens(int v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kMaxTokens, v);
+  }
+
+  // ── Streaming TTS ────────────────────────────────────────────────────────────
+
+  static const _kStreamingTts = 'streaming_tts_enabled';
+
+  Future<bool> getStreamingTts() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kStreamingTts) ?? false;
+  }
+
+  Future<void> setStreamingTts(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kStreamingTts, v);
+  }
+
+  // ── iCloud sync ──────────────────────────────────────────────────────────────
+
+  static const _kICloudSync = 'icloud_sync_enabled';
+
+  Future<bool> getICloudSync() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kICloudSync) ?? false;
+  }
+
+  Future<void> setICloudSync(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kICloudSync, v);
+  }
 }

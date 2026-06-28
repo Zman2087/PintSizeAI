@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -169,6 +171,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final text = _inputCtrl.text.trim();
     final attachments = List<ChatAttachment>.from(_pendingAttachments);
     if (text.isEmpty && attachments.isEmpty) return;
+    HapticFeedback.lightImpact();
     _inputCtrl.clear();
     setState(() {
       _pendingAttachments.clear();
@@ -510,25 +513,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final file = await _imagePicker.pickImage(
-        source: source,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
-      );
-      if (file == null) return;
-      final bytes = await file.readAsBytes();
-      setState(() {
-        _pendingAttachments.add(ChatAttachment(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          type: AttachmentType.image,
-          name: file.name,
-          localPath: file.path,
-          thumbnailBytes: bytes,
-          sizeBytes: bytes.length,
-          mimeType: 'image/jpeg',
-        ));
-      });
+      if (source == ImageSource.gallery) {
+        // Multi-select from gallery
+        final files = await _imagePicker.pickMultiImage(
+          maxWidth: 1920,
+          maxHeight: 1920,
+          imageQuality: 85,
+        );
+        if (files.isEmpty) return;
+        final attachments = await Future.wait(files.map((file) async {
+          final bytes = await file.readAsBytes();
+          return ChatAttachment(
+            id: '${DateTime.now().microsecondsSinceEpoch}_${file.name}',
+            type: AttachmentType.image,
+            name: file.name,
+            localPath: file.path,
+            thumbnailBytes: bytes,
+            sizeBytes: bytes.length,
+            mimeType: 'image/jpeg',
+          );
+        }));
+        setState(() => _pendingAttachments.addAll(attachments));
+      } else {
+        // Camera — single shot
+        final file = await _imagePicker.pickImage(
+          source: source,
+          maxWidth: 1920,
+          maxHeight: 1920,
+          imageQuality: 85,
+        );
+        if (file == null) return;
+        final bytes = await file.readAsBytes();
+        setState(() {
+          _pendingAttachments.add(ChatAttachment(
+            id: DateTime.now().microsecondsSinceEpoch.toString(),
+            type: AttachmentType.image,
+            name: file.name,
+            localPath: file.path,
+            thumbnailBytes: bytes,
+            sizeBytes: bytes.length,
+            mimeType: 'image/jpeg',
+          ));
+        });
+      }
     } catch (e) {
       _showError('Could not pick image: $e');
     }
@@ -566,20 +593,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final f = result.files.first;
       final ext = (f.extension ?? '').toLowerCase();
 
-      // For PDFs, extract text and store it so the LLM can read it
+      const textExts = {'pdf', 'txt', 'csv', 'tsv', 'md', 'json', 'rtf', 'docx', 'doc', 'html', 'htm'};
       String? extractedText;
-      if (ext == 'pdf' && f.path != null) {
+      if (textExts.contains(ext) && f.path != null) {
         try {
-          extractedText = await _media.extractPDF(f.path!);
+          extractedText = ext == 'pdf'
+              ? await _media.extractPDF(f.path!)
+              : await _media.extractText(f.path!);
+
           if (extractedText != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('PDF text extracted (${(extractedText.length / 1000).toStringAsFixed(0)}k chars)'),
+            HapticFeedback.lightImpact();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('${ext.toUpperCase()} text extracted (${(extractedText.length / 1000).toStringAsFixed(0)}k chars)'),
                 duration: const Duration(seconds: 2),
-              ),
-            );
-            // Pre-fill the input with context
-            _inputCtrl.text = '[PDF: ${f.name}]\n';
+              ));
+            }
+            _inputCtrl.text = '[${ext.toUpperCase()}: ${f.name}]\n';
           }
         } catch (_) {}
       }
@@ -592,7 +622,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           localPath: f.path,
           sizeBytes: f.size,
           mimeType: ext == 'pdf' ? 'application/pdf' : 'application/$ext',
-          generationPrompt: extractedText, // reuse field to store extracted text
+          generationPrompt: extractedText,
         ));
       });
     } catch (e) {
@@ -602,43 +632,186 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _showImageGenDialog({String originalText = '/image'}) {
     final ctrl = TextEditingController();
+    var variations = false;
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.surfaceOverlay,
-        title: const Text('Generate Image',
-            style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          style: AppTypography.messageBody,
-          decoration: InputDecoration(
-            hintText: 'Describe what to generate…',
-            hintStyle: AppTypography.placeholder,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: AppColors.borderDefault),
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          backgroundColor: AppColors.surfaceOverlay,
+          title: const Text('Generate Image',
+              style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                style: AppTypography.messageBody,
+                decoration: InputDecoration(
+                  hintText: 'Describe what to generate…',
+                  hintStyle: AppTypography.placeholder,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppColors.borderDefault),
+                  ),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Checkbox(
+                    value: variations,
+                    activeColor: AppColors.accentGreen,
+                    onChanged: (v) =>
+                        setDlgState(() => variations = v ?? false),
+                  ),
+                  const Text('Generate 4 variations',
+                      style: TextStyle(color: AppColors.textMuted,
+                          fontSize: 13)),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
             ),
-          ),
-          maxLines: 3,
+            FilledButton(
+              onPressed: () {
+                final prompt = ctrl.text.trim();
+                if (prompt.isEmpty) return;
+                Navigator.pop(context);
+                if (variations) {
+                  _generateVariations(prompt: prompt);
+                } else {
+                  _generateImage(prompt: prompt, userText: '/image $prompt');
+                }
+              },
+              child: const Text('Generate'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final prompt = ctrl.text.trim();
-              if (prompt.isEmpty) return;
-              Navigator.pop(context);
-              _generateImage(
-                  prompt: prompt,
-                  userText: '/image $prompt');
-            },
-            child: const Text('Generate'),
-          ),
-        ],
+      ),
+    );
+  }
+
+  Future<void> _generateVariations({required String prompt}) async {
+    ref.read(chatControllerProvider.notifier).addUserMessage(
+        '/image $prompt (×4 variations)');
+    _scrollToBottom();
+
+    final gen = ref.read(imageGenProvider);
+    final results = <Uint8List>[];
+
+    ref.read(imageGenStatusProvider.notifier).state = ImageGenStatus.generating;
+    ref.read(imageGenProgressProvider.notifier).state = 0.0;
+
+    for (var i = 0; i < 4; i++) {
+      try {
+        final result = await gen.generate(prompt);
+        results.add(result.imageBytes);
+      } catch (_) {}
+      if (mounted) {
+        ref.read(imageGenProgressProvider.notifier).state = (i + 1) / 4;
+      }
+    }
+
+    if (!mounted) return;
+    ref.read(imageGenStatusProvider.notifier).state = ImageGenStatus.done;
+
+    if (results.isEmpty) {
+      _showError('All variations failed to generate');
+      return;
+    }
+
+    // Show pick grid
+    _showVariationPicker(prompt, results);
+  }
+
+  void _showVariationPicker(String prompt, List<Uint8List> images) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceSidebar,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textDim,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('Pick a variation',
+                  style: AppTypography.modelName.copyWith(fontSize: 15)),
+            ),
+            const SizedBox(height: 12),
+            GridView.count(
+              shrinkWrap: true,
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: images.asMap().entries.map((e) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    HapticFeedback.lightImpact();
+                    final attachment = ChatAttachment(
+                      id: DateTime.now().microsecondsSinceEpoch.toString(),
+                      type: AttachmentType.generatedImage,
+                      name: 'variation_${e.key + 1}.png',
+                      thumbnailBytes: e.value,
+                      sizeBytes: e.value.length,
+                      generationPrompt: prompt,
+                    );
+                    ref.read(chatControllerProvider.notifier)
+                        .sendGeneratedAttachment(
+                          caption: '',
+                          attachment: attachment,
+                        );
+                    _scrollToBottom();
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.memory(e.value, fit: BoxFit.cover),
+                        Positioned(
+                          bottom: 4, right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text('${e.key + 1}',
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 11)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
@@ -822,6 +995,82 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(voiceServiceProvider).stopListening();
   }
 
+  // ── Message editing ──────────────────────────────────────────────────────────
+
+  void _showEditDialog(String messageId, String currentText) {
+    HapticFeedback.mediumImpact();
+    final ctrl = TextEditingController(text: currentText);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceSidebar,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Edit message',
+                style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              maxLines: null,
+              style: AppTypography.messageBody,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.surfaceBase,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.borderDefault),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.borderDefault),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.accentGreen),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accentGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () {
+                final newText = ctrl.text.trim();
+                if (newText.isEmpty) return;
+                Navigator.pop(ctx);
+                HapticFeedback.lightImpact();
+                ref
+                    .read(chatControllerProvider.notifier)
+                    .editAndRegenerate(messageId, newText);
+              },
+              child: const Text('Resend'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── Background removal ───────────────────────────────────────────────────────
 
   Future<void> _removeBackground(int attachmentIndex) async {
@@ -909,6 +1158,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     scrollCtrl: _scrollCtrl,
                     genStatus: genStatus,
                     genProgress: genProgress,
+                    onEditMessage: _showEditDialog,
                   ),
           ),
           if (_commandSuggestions.isNotEmpty)
@@ -1265,13 +1515,14 @@ class _FeatureChip extends StatelessWidget {
 // Message list
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MessageList extends StatelessWidget {
+class _MessageList extends ConsumerWidget {
   const _MessageList({
     required this.messages,
     required this.activeModel,
     required this.scrollCtrl,
     required this.genStatus,
     required this.genProgress,
+    required this.onEditMessage,
   });
 
   final List<ChatMessage> messages;
@@ -1279,9 +1530,10 @@ class _MessageList extends StatelessWidget {
   final ScrollController scrollCtrl;
   final ImageGenStatus genStatus;
   final double genProgress;
+  final void Function(String id, String content) onEditMessage;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isGeneratingImage = genStatus == ImageGenStatus.generating;
     final extraItems = isGeneratingImage ? 1 : 0;
 
@@ -1307,6 +1559,7 @@ class _MessageList extends StatelessWidget {
               ? UserMessage(
                   text: msg.content,
                   attachments: msg.attachments,
+                  onEdit: () => onEditMessage(msg.id, msg.content),
                 )
               : msg.isStreaming && msg.content.isEmpty
                   ? TypingIndicator(
@@ -1316,6 +1569,14 @@ class _MessageList extends StatelessWidget {
                       text: msg.content,
                       modelIcon: _modelIcon(activeModel, size: 28),
                       attachments: msg.attachments,
+                      onRegenerate: i > 0 && messages[i - 1].isUser
+                          ? () {
+                              final prev = messages[i - 1];
+                              ref
+                                  .read(chatControllerProvider.notifier)
+                                  .editAndRegenerate(prev.id, prev.content);
+                            }
+                          : null,
                     ),
         );
       },

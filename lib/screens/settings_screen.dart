@@ -118,6 +118,12 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 20),
 
+          // Model parameters
+          _SectionHeader('Model Parameters'),
+          _ModelParamsCard(),
+
+          const SizedBox(height: 20),
+
           // Voice
           _SectionHeader('Voice'),
           _VoiceSettingsCard(),
@@ -129,6 +135,12 @@ class SettingsScreen extends ConsumerWidget {
           _Card(
             child: _ImageGenRow(context: context),
           ),
+
+          const SizedBox(height: 20),
+
+          // Sync
+          _SectionHeader('Sync'),
+          _ICloudSyncCard(),
 
           const SizedBox(height: 20),
 
@@ -841,6 +853,189 @@ class _VoiceSettingsCard extends ConsumerWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Model Parameters card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ModelParamsCard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final temperature = ref.watch(temperatureProvider);
+    final topP = ref.watch(topPProvider);
+    final maxTokens = ref.watch(maxTokensProvider);
+    final streamingTts = ref.watch(streamingTtsProvider);
+    final svc = ref.read(settingsServiceProvider);
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Temperature
+          Row(
+            children: [
+              const Icon(Icons.thermostat_outlined,
+                  size: 16, color: AppColors.textMuted),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: Text('Temperature', style: AppTypography.modelName)),
+              Text(temperature.toStringAsFixed(2),
+                  style: AppTypography.modelDesc),
+            ],
+          ),
+          Text('Higher = more creative, lower = more deterministic',
+              style: AppTypography.modelDesc),
+          Slider(
+            value: temperature,
+            min: 0.0,
+            max: 2.0,
+            divisions: 40,
+            activeColor: AppColors.accentGreen,
+            onChanged: (v) {
+              ref.read(temperatureProvider.notifier).set(v);
+              svc.setTemperature(v);
+            },
+          ),
+
+          const Divider(height: 8, color: AppColors.borderDefault),
+
+          // Top-P
+          Row(
+            children: [
+              const Icon(Icons.filter_alt_outlined,
+                  size: 16, color: AppColors.textMuted),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Top-P', style: AppTypography.modelName)),
+              Text(topP.toStringAsFixed(2), style: AppTypography.modelDesc),
+            ],
+          ),
+          Text('Nucleus sampling — controls diversity',
+              style: AppTypography.modelDesc),
+          Slider(
+            value: topP,
+            min: 0.1,
+            max: 1.0,
+            divisions: 18,
+            activeColor: AppColors.accentGreen,
+            onChanged: (v) {
+              ref.read(topPProvider.notifier).set(v);
+              svc.setTopP(v);
+            },
+          ),
+
+          const Divider(height: 8, color: AppColors.borderDefault),
+
+          // Max tokens
+          Row(
+            children: [
+              const Icon(Icons.format_list_numbered_outlined,
+                  size: 16, color: AppColors.textMuted),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: Text('Max tokens', style: AppTypography.modelName)),
+              Text('$maxTokens', style: AppTypography.modelDesc),
+            ],
+          ),
+          Text('Maximum length of each AI response',
+              style: AppTypography.modelDesc),
+          Slider(
+            value: maxTokens.toDouble(),
+            min: 64,
+            max: 2048,
+            divisions: 31,
+            activeColor: AppColors.accentGreen,
+            onChanged: (v) {
+              ref.read(maxTokensProvider.notifier).set(v.round());
+              svc.setMaxTokens(v.round());
+            },
+          ),
+
+          const Divider(height: 8, color: AppColors.borderDefault),
+
+          // Streaming TTS
+          Row(
+            children: [
+              const Icon(Icons.record_voice_over_outlined,
+                  size: 16, color: AppColors.textMuted),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Streaming voice', style: AppTypography.modelName),
+                    Text('Speak sentences as they generate (faster response)',
+                        style: AppTypography.modelDesc),
+                  ],
+                ),
+              ),
+              Switch(
+                value: streamingTts,
+                onChanged: (v) {
+                  ref.read(streamingTtsProvider.notifier).set(v);
+                  svc.setStreamingTts(v);
+                },
+                activeColor: AppColors.accentGreen,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// iCloud Sync card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ICloudSyncCard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(iCloudSyncProvider);
+    return _Card(
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.cloud_outlined, size: 18, color: AppColors.textMuted),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('iCloud sync', style: AppTypography.modelName),
+                    Text('Back up conversations to iCloud KV. '
+                        'Requires iCloud account and Apple Developer entitlement.',
+                        style: AppTypography.modelDesc),
+                  ],
+                ),
+              ),
+              Switch(
+                value: enabled,
+                onChanged: (v) {
+                  ref.read(iCloudSyncProvider.notifier).set(v);
+                  ref.read(settingsServiceProvider).setICloudSync(v);
+                },
+                activeColor: AppColors.accentGreen,
+              ),
+            ],
+          ),
+          if (enabled) ...[
+            const Divider(height: 16, color: AppColors.borderDefault),
+            Text(
+              '⚠ iCloud sync requires the iCloud capability and App Groups '
+              'entitlement to be configured in Xcode with a paid Apple Developer '
+              'account. Without this, the toggle is saved but sync will silently '
+              'no-op.',
+              style: AppTypography.modelDesc
+                  .copyWith(color: const Color(0xFFF59E0B)),
+            ),
+          ],
         ],
       ),
     );

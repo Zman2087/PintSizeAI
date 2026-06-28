@@ -49,6 +49,9 @@ import AppIntents
         // Media analysis: image understanding, background removal, PDF extraction
         MediaPlugin.register(with: flutterEngine.binaryMessenger)
 
+        // iCloud KV sync
+        CloudSyncPlugin.register(with: flutterEngine.binaryMessenger)
+
         // ── Register Siri method channel ─────────────────────────────────
         let siriChannel = FlutterMethodChannel(
             name: "com.mypocketai/siri",
@@ -111,6 +114,26 @@ import AppIntents
         open url: URL,
         options: [UIApplication.OpenURLOptionsKey: Any] = [:]
     ) -> Bool {
+        // Handle pintsize-ai://share deep links from the Share Extension
+        if url.scheme == "pintsize-ai" && url.host == "share" {
+            let shareChannel = FlutterMethodChannel(
+                name: "pintsize/share_extension",
+                binaryMessenger: flutterEngine.binaryMessenger
+            )
+            shareChannel.invokeMethod("incomingShare", arguments: nil)
+            return true
+        }
+
+        // Handle pintsize-ai://new-chat (from Widget)
+        if url.scheme == "pintsize-ai" && url.host == "new-chat" {
+            let shareChannel = FlutterMethodChannel(
+                name: "pintsize/share_extension",
+                binaryMessenger: flutterEngine.binaryMessenger
+            )
+            shareChannel.invokeMethod("newChat", arguments: nil)
+            return true
+        }
+
         // Handle mypocketai://siri?q=... deep links from the intent fallback
         if let question = SiriBridge.questionFromURL(url) {
             let siriChannel = FlutterMethodChannel(

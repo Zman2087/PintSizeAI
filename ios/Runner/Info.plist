@@ -36,6 +36,19 @@
 	<string>PintSizeAi saves AI-generated images to your Camera Roll.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>PintSizeAi needs access to your photo library so you can attach images and videos to messages.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.pintsize.ai</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>pintsize-ai</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

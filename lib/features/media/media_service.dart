@@ -5,25 +5,18 @@ import 'package:flutter/services.dart';
 ///   - Image understanding (Vision scene/OCR/face analysis)
 ///   - Background removal (iOS 17+ VNGenerateForegroundInstanceMask)
 ///   - PDF text extraction (PDFKit)
+///   - Generic text extraction (txt, csv, rtf, docx, html)
 class MediaService {
   static const _method = MethodChannel('pintsize/media');
 
-  /// Analyse an image and return a text description suitable for prepending
-  /// to an LLM prompt as context.  Never throws — returns null on failure.
   Future<String?> analyzeImage(Uint8List bytes) async {
     try {
-      final result = await _method.invokeMethod<String>('analyzeImage', {
-        'bytes': bytes,
-      });
-      return result;
+      return await _method.invokeMethod<String>('analyzeImage', {'bytes': bytes});
     } catch (_) {
       return null;
     }
   }
 
-  /// Remove the background from an image. Returns transparent PNG bytes.
-  /// Requires iOS 17+. Throws a [PlatformException] with code OS_UNSUPPORTED
-  /// on older iOS.
   Future<Uint8List> removeBackground(Uint8List bytes) async {
     final result = await _method.invokeMethod<Uint8List>('removeBackground', {
       'bytes': bytes,
@@ -32,16 +25,22 @@ class MediaService {
     return result;
   }
 
-  /// Extract plain text from a PDF file at [path].
-  /// Returns null if the PDF has no extractable text (e.g. scanned image).
   Future<String?> extractPDF(String path) async {
     try {
-      return await _method.invokeMethod<String>('extractPDF', {
-        'path': path,
-      });
+      return await _method.invokeMethod<String>('extractPDF', {'path': path});
     } on PlatformException catch (e) {
       if (e.code == 'NO_TEXT') return null;
       rethrow;
+    }
+  }
+
+  /// Extract text from .txt, .csv, .tsv, .md, .json, .rtf, .html, .docx files.
+  Future<String?> extractText(String path) async {
+    try {
+      return await _method.invokeMethod<String>('extractText', {'path': path});
+    } on PlatformException catch (e) {
+      if (e.code == 'NO_TEXT') return null;
+      return null;
     }
   }
 }

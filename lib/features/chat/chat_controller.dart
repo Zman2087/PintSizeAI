@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../attachments/attachment.dart';
 import '../device_recommender/model_catalogue.dart';
@@ -6,6 +7,7 @@ import '../llm/llama_runner.dart';
 import '../llm/llm_providers.dart';
 import '../settings/settings_providers.dart';
 import '../settings/settings_service.dart';
+import '../sync/cloud_sync_service.dart';
 import '../voice/voice_providers.dart';
 import 'chat_message.dart';
 
@@ -54,6 +56,62 @@ class ChatController extends StateNotifier<ChatState> {
 
   final Ref _ref;
   StreamSubscription<String>? _tokenSub;
+  final _cloudSync = CloudSyncService();
+
+  // Debounced cloud save — wait 3s after last change to avoid thrashing
+  Timer? _syncTimer;
+  void _scheduleCloudSave() {
+    if (!(_ref.read(iCloudSyncProvider))) return;
+    _syncTimer?.cancel();
+    _syncTimer = Timer(const Duration(seconds: 3), _saveToCloud);
+  }
+
+  Future<void> _saveToCloud() async {
+    try {
+      final sessions = state.sessions.map((s) => {
+        'id': s.id,
+        'title': s.title,
+        'createdAt': s.createdAt.toIso8601String(),
+        'messages': s.messages.map((m) => {
+          'id': m.id,
+          'role': m.role.name,
+          'content': m.content,
+          'timestamp': m.timestamp.toIso8601String(),
+        }).toList(),
+      }).toList();
+      await _cloudSync.save(jsonEncode(sessions));
+    } catch (_) {}
+  }
+
+  Future<void> loadFromCloud() async {
+    try {
+      final json = await _cloudSync.load();
+      if (json == null) return;
+      final list = jsonDecode(json) as List;
+      final sessions = list.map((s) {
+        final msgs = (s['messages'] as List?)?.map((m) => ChatMessage(
+          id: m['id'] as String,
+          role: MessageRole.values.firstWhere(
+              (r) => r.name == m['role'], orElse: () => MessageRole.user),
+          content: m['content'] as String,
+          timestamp: DateTime.tryParse(m['timestamp'] as String? ?? '') ?? DateTime.now(),
+        )).toList() ?? <ChatMessage>[];
+        return ChatSession(
+          id: s['id'] as String,
+          title: s['title'] as String?,
+          createdAt: DateTime.tryParse(s['createdAt'] as String? ?? '') ?? DateTime.now(),
+          messages: msgs,
+        );
+      }).toList();
+      // Merge: keep local sessions not in cloud, add cloud sessions
+      final localIds = state.sessions.map((s) => s.id).toSet();
+      final newSessions = [
+        ...state.sessions,
+        ...sessions.where((s) => !localIds.contains(s.id)),
+      ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      state = state.copyWith(sessions: newSessions);
+    } catch (_) {}
+  }
 
   // ── Session management ─────────────────────────────────────────────────────
 
@@ -67,6 +125,7 @@ class ChatController extends StateNotifier<ChatState> {
       activeSessionId: session.id,
       clearError: true,
     );
+    _scheduleCloudSave();
   }
 
   void selectSession(String sessionId) {
@@ -83,6 +142,7 @@ class ChatController extends StateNotifier<ChatState> {
         ? sessions.firstOrNull?.id
         : state.activeSessionId;
     state = state.copyWith(sessions: sessions, activeSessionId: newActiveId);
+    _scheduleCloudSave();
   }
 
   // ── Message sending ────────────────────────────────────────────────────────
@@ -146,13 +206,33 @@ class ChatController extends StateNotifier<ChatState> {
     // 3. Stream tokens
     final prompt = _buildPrompt(state.messages, text.trim());
     final buffer = StringBuffer();
+    final temperature = _ref.read(temperatureProvider);
+    final topP = _ref.read(topPProvider);
+    final maxTok = _ref.read(maxTokensProvider);
+    final streamingTts = _ref.read(streamingTtsProvider);
+    final autoSpeak = _ref.read(autoSpeakProvider);
+    final voice = _ref.read(voiceServiceProvider);
+    // Track which portion has already been sent to TTS so we don't repeat
+    int _ttsSentUpTo = 0;
 
     try {
       await _tokenSub?.cancel();
-      _tokenSub = runner.generate(prompt).listen(
+      _tokenSub = runner.generate(prompt,
+        temperature: temperature, topP: topP, maxTokens: maxTok).listen(
         (token) {
           buffer.write(token);
           _updateLastAssistantMessage(buffer.toString(), isStreaming: true);
+          // Streaming TTS: speak each complete sentence as it arrives
+          if (streamingTts && autoSpeak) {
+            final text = buffer.toString();
+            final unsent = text.substring(_ttsSentUpTo);
+            final sentenceEnd = _lastSentenceBoundary(unsent);
+            if (sentenceEnd > 0) {
+              final chunk = unsent.substring(0, sentenceEnd).trim();
+              if (chunk.isNotEmpty) voice.speak(chunk);
+              _ttsSentUpTo += sentenceEnd;
+            }
+          }
         },
         onDone: () {
           final response = buffer.toString();
@@ -160,9 +240,15 @@ class ChatController extends StateNotifier<ChatState> {
           _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.ready;
           _maybeSetSessionTitle();
           _maybeSaveMemory();
-          // Auto-speak if enabled
-          if (_ref.read(autoSpeakProvider)) {
-            _ref.read(voiceServiceProvider).speak(response);
+          _scheduleCloudSave();
+          if (autoSpeak) {
+            if (streamingTts) {
+              // Speak any trailing text not yet sent
+              final remaining = response.substring(_ttsSentUpTo).trim();
+              if (remaining.isNotEmpty) voice.speak(remaining);
+            } else {
+              voice.speak(response);
+            }
           }
         },
         onError: (e) {
@@ -178,6 +264,40 @@ class ChatController extends StateNotifier<ChatState> {
       _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.ready;
       state = state.copyWith(error: e.toString());
     }
+  }
+
+  /// Returns the index just past the last sentence-ending punctuation in [s].
+  static int _lastSentenceBoundary(String s) {
+    const endings = {'.', '!', '?', '\n'};
+    for (var i = s.length - 1; i >= 0; i--) {
+      if (endings.contains(s[i])) return i + 1;
+    }
+    return 0;
+  }
+
+  /// Edit a user message in-place and re-run generation from that point.
+  Future<void> editAndRegenerate(String messageId, String newContent) async {
+    final session = state.activeSession;
+    if (session == null) return;
+
+    final idx = session.messages.indexWhere((m) => m.id == messageId);
+    if (idx < 0) return;
+
+    // Truncate history from that message onward, replace content
+    final updated = session.messages.sublist(0, idx);
+    final newSession = ChatSession(
+      id: session.id,
+      createdAt: session.createdAt,
+      title: session.title,
+      modelId: session.modelId,
+      messages: updated,
+    );
+    state = state.copyWith(
+      sessions: state.sessions
+          .map((s) => s.id == session.id ? newSession : s)
+          .toList(),
+    );
+    await send(newContent);
   }
 
   void stopGeneration() {

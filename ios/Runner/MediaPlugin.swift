@@ -62,6 +62,17 @@ final class MediaPlugin: NSObject {
             }
             extractPDF(path: path, result: result)
 
+        case "extractText":
+            // Generic text extraction for .txt, .csv, .rtf, .docx, .doc
+            guard let args = call.arguments as? [String: Any],
+                  let path = args["path"] as? String else {
+                result(FlutterError(code: "BAD_ARGS",
+                                    message: "extractText requires {path: String}",
+                                    details: nil))
+                return
+            }
+            extractText(path: path, result: result)
+
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -171,6 +182,85 @@ final class MediaPlugin: NSObject {
                     result(FlutterError(code: "VISION_ERROR",
                                         message: error.localizedDescription,
                                         details: nil))
+                }
+            }
+        }
+    }
+
+    // ── Generic text extraction (txt, csv, rtf, docx) ────────────────────────
+
+    private func extractText(path: String, result: @escaping FlutterResult) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let url = URL(fileURLWithPath: path)
+            let ext = url.pathExtension.lowercased()
+
+            // Plain text / CSV
+            if ext == "txt" || ext == "csv" || ext == "tsv" || ext == "md" || ext == "json" {
+                do {
+                    let text = try String(contentsOf: url, encoding: .utf8)
+                    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    DispatchQueue.main.async {
+                        if trimmed.isEmpty {
+                            result(FlutterError(code: "NO_TEXT", message: "File is empty", details: nil))
+                        } else {
+                            // For CSV/TSV, add a header note
+                            let header = (ext == "csv" || ext == "tsv")
+                                ? "[CSV file: \(url.lastPathComponent)]\n"
+                                : ""
+                            result(header + trimmed)
+                        }
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        result(FlutterError(code: "READ_ERROR",
+                                            message: error.localizedDescription,
+                                            details: nil))
+                    }
+                }
+                return
+            }
+
+            // RTF / RTFD / DOC / DOCX via NSAttributedString
+            // .officeOpenXML is macOS-only; DOCX falls back to raw UTF-8 read
+            let docTypes: [NSAttributedString.DocumentType: [String]] = [
+                .rtf:  ["rtf"],
+                .rtfd: ["rtfd"],
+                .html: ["html", "htm"],
+                .plain: ["txt"],
+            ]
+
+            var docType: NSAttributedString.DocumentType = .plain
+            for (type, exts) in docTypes where exts.contains(ext) {
+                docType = type
+                break
+            }
+
+            do {
+                let data = try Data(contentsOf: url)
+                let opts: [NSAttributedString.DocumentReadingOptionKey: Any] = [
+                    .documentType: docType,
+                    .characterEncoding: String.Encoding.utf8.rawValue
+                ]
+                let attrStr = try NSAttributedString(data: data, options: opts, documentAttributes: nil)
+                let text = attrStr.string.trimmingCharacters(in: .whitespacesAndNewlines)
+                DispatchQueue.main.async {
+                    if text.isEmpty {
+                        result(FlutterError(code: "NO_TEXT", message: "Document contains no extractable text", details: nil))
+                    } else {
+                        result(text)
+                    }
+                }
+            } catch {
+                // Fallback: try reading as raw UTF-8
+                do {
+                    let text = try String(contentsOf: url, encoding: .utf8)
+                    DispatchQueue.main.async { result(text) }
+                } catch {
+                    DispatchQueue.main.async {
+                        result(FlutterError(code: "PARSE_ERROR",
+                                            message: "Cannot read \(ext) file: \(error.localizedDescription)",
+                                            details: nil))
+                    }
                 }
             }
         }

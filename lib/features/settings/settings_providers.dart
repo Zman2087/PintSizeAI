@@ -54,3 +54,50 @@ class _BoolNotifier extends StateNotifier<bool> {
   void toggle() => state = !state;
   void set(bool v) => state = v;
 }
+
+class _DoubleNotifier extends StateNotifier<double> {
+  _DoubleNotifier(super.state);
+  void _set(double v) => state = v;
+  void set(double v) => state = v;
+}
+
+class _IntNotifier extends StateNotifier<int> {
+  _IntNotifier(super.state);
+  void _set(int v) => state = v;
+  void set(int v) => state = v;
+}
+
+/// LLM sampling temperature (0.0 – 2.0, default 0.7).
+final temperatureProvider = StateNotifierProvider<_DoubleNotifier, double>((ref) {
+  final n = _DoubleNotifier(0.7);
+  ref.read(settingsServiceProvider).getTemperature().then(n._set);
+  return n;
+});
+
+/// Nucleus sampling top-p (0.0 – 1.0, default 0.9).
+final topPProvider = StateNotifierProvider<_DoubleNotifier, double>((ref) {
+  final n = _DoubleNotifier(0.9);
+  ref.read(settingsServiceProvider).getTopP().then(n._set);
+  return n;
+});
+
+/// Max tokens per response (64 – 2048, default 512).
+final maxTokensProvider = StateNotifierProvider<_IntNotifier, int>((ref) {
+  final n = _IntNotifier(512);
+  ref.read(settingsServiceProvider).getMaxTokens().then(n._set);
+  return n;
+});
+
+/// Whether TTS speaks sentence-by-sentence while AI is still generating.
+final streamingTtsProvider = StateNotifierProvider<_BoolNotifier, bool>((ref) {
+  final n = _BoolNotifier(false);
+  ref.read(settingsServiceProvider).getStreamingTts().then(n._set);
+  return n;
+});
+
+/// Whether iCloud KV sync is enabled.
+final iCloudSyncProvider = StateNotifierProvider<_BoolNotifier, bool>((ref) {
+  final n = _BoolNotifier(false);
+  ref.read(settingsServiceProvider).getICloudSync().then(n._set);
+  return n;
+});

@@ -13,6 +13,7 @@
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
 		4BA090B9D192D1AE01916A71 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 627B1EA331961950F814C876 /* Pods_Runner.framework */; };
+		60E3326F08656BCD5F3BDC06 /* CloudSyncPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9500155EDA31689143AA4D01 /* CloudSyncPlugin.swift */; };
 		70A12D2587BD19B9F4205DE8 /* LlamaPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACB2EE267243DDE2983FF7D4 /* LlamaPlugin.swift */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
@@ -70,6 +71,7 @@
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		90B395599D0456886EF225D9 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		9500155EDA31689143AA4D01 /* CloudSyncPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CloudSyncPlugin.swift; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
 		97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -182,6 +184,7 @@
 				45646F07C09EAC1E905AEEC6 /* LlamaEngine.mm */,
 				316096727C39C6129A0DDC4C /* VoicePlugin.swift */,
 				D4ED7300CC5147D1359898E8 /* MediaPlugin.swift */,
+				9500155EDA31689143AA4D01 /* CloudSyncPlugin.swift */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -430,6 +433,7 @@
 				DE7FF89BBBB7BA3986FAE2F5 /* LlamaEngine.mm in Sources */,
 				2D97C8B9944041E0778DB1B0 /* VoicePlugin.swift in Sources */,
 				7F8A29254DD50DE88830D1E7 /* MediaPlugin.swift in Sources */,
+				60E3326F08656BCD5F3BDC06 /* CloudSyncPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

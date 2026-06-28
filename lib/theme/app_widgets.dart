@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import '../features/attachments/attachment.dart';
 import '../theme/theme.dart';
@@ -137,9 +138,11 @@ class UserMessage extends StatelessWidget {
     super.key,
     required this.text,
     this.attachments = const [],
+    this.onEdit,
   });
   final String text;
   final List<ChatAttachment> attachments;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +154,6 @@ class UserMessage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // Attachment thumbnails above the bubble
             if (attachments.isNotEmpty) ...[
               Wrap(
                 alignment: WrapAlignment.end,
@@ -162,13 +164,66 @@ class UserMessage extends StatelessWidget {
               const SizedBox(height: 6),
             ],
             if (text.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceOverlay,
-                  borderRadius: AppRadius.userBubble,
+              GestureDetector(
+                onLongPress: () {
+                  HapticFeedback.mediumImpact();
+                  _showOptions(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceOverlay,
+                    borderRadius: AppRadius.userBubble,
+                  ),
+                  child: Text(text, style: AppTypography.messageBody),
                 ),
-                child: Text(text, style: AppTypography.messageBody),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceSidebar,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 4),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textDim,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.copy_outlined,
+                  color: AppColors.textMuted),
+              title: const Text('Copy'),
+              onTap: () {
+                Navigator.pop(context);
+                Clipboard.setData(ClipboardData(text: text));
+                HapticFeedback.lightImpact();
+              },
+            ),
+            if (onEdit != null)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined,
+                    color: AppColors.textMuted),
+                title: const Text('Edit & Resend'),
+                onTap: () {
+                  Navigator.pop(context);
+                  onEdit!();
+                },
               ),
           ],
         ),
@@ -188,10 +243,12 @@ class AssistantMessage extends StatelessWidget {
     required this.text,
     required this.modelIcon,
     this.attachments = const [],
+    this.onRegenerate,
   });
   final String text;
   final Widget modelIcon;
   final List<ChatAttachment> attachments;
+  final VoidCallback? onRegenerate;
 
   @override
   Widget build(BuildContext context) {
@@ -204,12 +261,12 @@ class AssistantMessage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Generated images/videos shown above text
               if (attachments.isNotEmpty) ...[
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: attachments.map((a) => AttachmentThumbnail(a)).toList(),
+                  children:
+                      attachments.map((a) => AttachmentThumbnail(a)).toList(),
                 ),
                 const SizedBox(height: 8),
               ],
@@ -217,7 +274,7 @@ class AssistantMessage extends StatelessWidget {
                 MessageContent(text, isStreaming: false),
                 const SizedBox(height: 8),
               ],
-              _ActionRow(),
+              _ActionRow(text: text, onRegenerate: onRegenerate),
             ],
           ),
         ),
@@ -226,24 +283,60 @@ class AssistantMessage extends StatelessWidget {
   }
 }
 
-class _ActionRow extends StatelessWidget {
+class _ActionRow extends StatefulWidget {
+  const _ActionRow({required this.text, this.onRegenerate});
+  final String text;
+  final VoidCallback? onRegenerate;
+
+  @override
+  State<_ActionRow> createState() => _ActionRowState();
+}
+
+class _ActionRowState extends State<_ActionRow> {
+  bool _copied = false;
+
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _ActionBtn(icon: Icons.copy_outlined, tooltip: 'Copy'),
-        _ActionBtn(icon: Icons.thumb_up_outlined, tooltip: 'Good response'),
-        _ActionBtn(icon: Icons.thumb_down_outlined, tooltip: 'Bad response'),
-        _ActionBtn(icon: Icons.refresh, tooltip: 'Regenerate'),
+        _ActionBtn(
+          icon: _copied ? Icons.check : Icons.copy_outlined,
+          tooltip: 'Copy',
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: widget.text));
+            HapticFeedback.lightImpact();
+            setState(() => _copied = true);
+            Future.delayed(
+              const Duration(seconds: 2),
+              () { if (mounted) setState(() => _copied = false); },
+            );
+          },
+        ),
+        _ActionBtn(
+          icon: Icons.share_outlined,
+          tooltip: 'Share',
+          onTap: () => Share.share(widget.text),
+        ),
+        if (widget.onRegenerate != null)
+          _ActionBtn(
+            icon: Icons.refresh,
+            tooltip: 'Regenerate',
+            onTap: () {
+              HapticFeedback.lightImpact();
+              widget.onRegenerate!();
+            },
+          ),
       ],
     );
   }
 }
 
 class _ActionBtn extends StatelessWidget {
-  const _ActionBtn({required this.icon, required this.tooltip});
+  const _ActionBtn(
+      {required this.icon, required this.tooltip, required this.onTap});
   final IconData icon;
   final String tooltip;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -252,7 +345,7 @@ class _ActionBtn extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         hoverColor: AppColors.surfaceOverlay,
-        onTap: () {},
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(4),
           child: Icon(icon, size: 16, color: AppColors.textDim),

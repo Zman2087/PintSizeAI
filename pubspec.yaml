@@ -57,6 +57,12 @@ dependencies:
   # Inline video playback for video attachments
   video_player: ^2.9.2
 
+  # LaTeX math rendering in AI responses
+  flutter_math_fork: ^0.7.2
+
+  # Share sheet (export conversations)
+  share_plus: ^10.1.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
