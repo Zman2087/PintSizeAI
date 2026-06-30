@@ -28,8 +28,23 @@ final persistentMemoriesProvider =
 
 /// Whether AI responses are automatically spoken aloud.
 final autoSpeakProvider = StateNotifierProvider<_BoolNotifier, bool>((ref) {
-  final notifier = _BoolNotifier(false);
+  final notifier = _BoolNotifier(true);
   ref.read(settingsServiceProvider).getAutoSpeak().then(notifier._set);
+  return notifier;
+});
+
+/// Whether the AI remembers context/feedback across chats.
+final memoryEnabledProvider = StateNotifierProvider<_BoolNotifier, bool>((ref) {
+  final notifier = _BoolNotifier(true);
+  ref.read(settingsServiceProvider).getMemoryEnabled().then(notifier._set);
+  return notifier;
+});
+
+/// The selected TTS voice identifier (null = system default).
+final selectedVoiceProvider =
+    StateNotifierProvider<_StringNotifier, String?>((ref) {
+  final notifier = _StringNotifier(null);
+  ref.read(settingsServiceProvider).getVoiceId().then(notifier._set);
   return notifier;
 });
 

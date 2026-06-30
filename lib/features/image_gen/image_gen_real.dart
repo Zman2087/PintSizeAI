@@ -88,6 +88,32 @@ class LocalImageGenReal implements LocalImageGen {
   }
 
   @override
+  Future<Uint8List?> editImage({
+    required Uint8List imageBytes,
+    required String prompt,
+    double strength = 0.7,
+    int steps = 20,
+  }) async {
+    status = ImageGenStatus.generating;
+    _progressCtrl.add(0.0);
+    try {
+      final raw = await _method.invokeMethod<Uint8List>('editImage', {
+        'prompt': prompt,
+        'imageBytes': imageBytes,
+        'strength': strength,
+        'steps': steps,
+        'negativePrompt': 'low quality, blurry, distorted',
+      });
+      status = ImageGenStatus.done;
+      _progressCtrl.add(1.0);
+      return raw;
+    } catch (e) {
+      status = ImageGenStatus.error;
+      return null;
+    }
+  }
+
+  @override
   void cancel() {
     _method.invokeMethod('cancel');
   }

@@ -25,6 +25,16 @@ class ModelStorageService {
     return p.join(dir.path, '$modelId.gguf');
   }
 
+  /// Path to a model's multimodal projector (mmproj) file, if it has one.
+  Future<String> mmprojPath(String modelId) async {
+    final dir = await _root();
+    return p.join(dir.path, '$modelId.mmproj.gguf');
+  }
+
+  Future<bool> isMmprojDownloaded(String modelId) async {
+    return File(await mmprojPath(modelId)).existsSync();
+  }
+
   Future<bool> isDownloaded(String modelId) async {
     final path = await modelPath(modelId);
     return File(path).existsSync();

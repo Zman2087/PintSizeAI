@@ -5,6 +5,7 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:markdown/markdown.dart' as md;
 import '../screens/html_sandbox_screen.dart';
 import '../theme/theme.dart';
+import 'stock_chart_card.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MessageContent
@@ -21,6 +22,29 @@ class MessageContent extends StatelessWidget {
   Widget build(BuildContext context) {
     if (text.isEmpty) {
       return isStreaming ? const _TypingIndicator() : const SizedBox.shrink();
+    }
+
+    // Live stock card embedded in the message text.
+    final start = text.indexOf(StockChartCard.startMarker);
+    final end = text.indexOf(StockChartCard.endMarker);
+    if (start >= 0 && end > start) {
+      final before = text.substring(0, start).trim();
+      final json = text.substring(start + StockChartCard.startMarker.length, end);
+      final after =
+          text.substring(end + StockChartCard.endMarker.length).trim();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (before.isNotEmpty)
+            _MixedContent(text: before, isStreaming: false),
+          StockChartCard(json: json),
+          if (after.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            _MixedContent(text: after, isStreaming: isStreaming),
+          ],
+        ],
+      );
     }
 
     // Pre-process: split out $...$ and $$...$$ for math rendering

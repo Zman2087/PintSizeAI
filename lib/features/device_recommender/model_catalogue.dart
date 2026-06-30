@@ -47,6 +47,8 @@ class ModelVariant {
     required this.downloadUrl,
     required this.strengths,
     this.isReasoningModel = false,
+    this.isMultimodal = false,
+    this.mmprojUrl,
     this.creator = '',
     this.releaseYear = 0,
     this.releaseMonth = 0,
@@ -89,6 +91,29 @@ class ModelVariant {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'displayName': displayName,
+        'family': family.name,
+        'parametersBillions': parametersBillions,
+        'quant': quant.name,
+        'fileSizeBytes': fileSizeBytes,
+        'ramRequiredBytes': ramRequiredBytes,
+        'contextLength': contextLength,
+        'downloadUrl': downloadUrl,
+        'strengths': strengths,
+        'isReasoningModel': isReasoningModel,
+        'creator': creator,
+        'releaseYear': releaseYear,
+        'releaseMonth': releaseMonth,
+        if (description != null) 'description': description,
+        'limitations': limitations,
+        'minRamGbRecommended': minRamGbRecommended,
+        if (recommendedDevice != null) 'recommendedDevice': recommendedDevice,
+        if (huggingFaceUrl != null) 'huggingFaceUrl': huggingFaceUrl,
+        if (supersedes != null) 'supersedes': supersedes,
+      };
+
   final String id;
   final String displayName;
   final ModelFamily family;
@@ -100,6 +125,13 @@ class ModelVariant {
   final String downloadUrl;
   final List<String> strengths;
   final bool isReasoningModel;
+
+  /// Whether this model accepts image inputs (LLaVA / MiniCPM-V style).
+  final bool isMultimodal;
+
+  /// URL to the corresponding mmproj (CLIP vision encoder) GGUF file.
+  /// Required for multimodal inference; downloaded alongside the main model.
+  final String? mmprojUrl;
 
   // ── Rich metadata ──────────────────────────────────────────────────────────
 
@@ -705,5 +737,82 @@ const List<ModelVariant> kModelCatalogue = [
     minRamGbRecommended: 8,
     recommendedDevice: 'iPad Pro M1+, Samsung Galaxy Tab S9, Android with 8GB+ RAM',
     huggingFaceUrl: 'https://huggingface.co/google/gemma-3-12b-it',
+  ),
+
+  // ── Multimodal / Vision models ────────────────────────────────────────────
+
+  ModelVariant(
+    id: 'minicpm-v-2_6-q4km',
+    displayName: 'MiniCPM-V 2.6',
+    family: ModelFamily.llama,
+    parametersBillions: 8.1,
+    quant: Quant.q4km,
+    fileSizeBytes: 5500000000,
+    ramRequiredBytes: 6800000000,
+    contextLength: 32768,
+    isMultimodal: true,
+    downloadUrl:
+        'https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf/resolve/main/MiniCPM-V-2_6-Q4_K_M.gguf',
+    mmprojUrl:
+        'https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf/resolve/main/mmproj-MiniCPM-V-2_6-f16.gguf',
+    strengths: [
+      'Real image understanding',
+      'Describes photos in detail',
+      'OCR + chart reading',
+      'Multi-image conversations',
+    ],
+    creator: 'OpenBMB',
+    releaseYear: 2024,
+    releaseMonth: 9,
+    description:
+        'MiniCPM-V 2.6 is a compact multimodal model that genuinely understands images — '
+        'not just labels, but full descriptions, reading text in photos, interpreting charts, '
+        'and answering questions about what it sees. At 8B parameters it is feasible on '
+        'iPhone 15 Pro and newer with 8 GB RAM. Requires downloading both the main model '
+        'and the mmproj vision encoder (~5.5 GB total).',
+    limitations: [
+      'Requires iPhone 15 Pro / 8 GB RAM',
+      'Large download (5.5 GB + 1.5 GB mmproj)',
+    ],
+    minRamGbRecommended: 8,
+    recommendedDevice: 'iPhone 15 Pro / Pro Max, iPad Pro M1+',
+    huggingFaceUrl: 'https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf',
+  ),
+
+  ModelVariant(
+    id: 'llava-phi3-q4km',
+    displayName: 'LLaVA Phi-3 Mini',
+    family: ModelFamily.phi,
+    parametersBillions: 3.8,
+    quant: Quant.q4km,
+    fileSizeBytes: 2300000000,
+    ramRequiredBytes: 3800000000,
+    contextLength: 4096,
+    isMultimodal: true,
+    downloadUrl:
+        'https://huggingface.co/xtuner/llava-phi-3-mini-gguf/resolve/main/llava-phi-3-mini-int4.gguf',
+    mmprojUrl:
+        'https://huggingface.co/xtuner/llava-phi-3-mini-gguf/resolve/main/llava-phi-3-mini-mmproj-f16.gguf',
+    strengths: [
+      'Image understanding on 6 GB RAM phones',
+      'Fast on A15+',
+      'Describes scenes and reads text in photos',
+    ],
+    creator: 'Microsoft / xTuner',
+    releaseYear: 2024,
+    releaseMonth: 5,
+    description:
+        'LLaVA Phi-3 Mini combines Microsoft\'s efficient Phi-3 Mini language model with '
+        'the LLaVA vision encoder. It can describe images, answer questions about photos, '
+        'and read text in pictures — all on iPhones as old as iPhone 13. The model is '
+        'significantly smaller than MiniCPM-V 2.6 but still delivers genuine image '
+        'understanding rather than simple scene labels.',
+    limitations: [
+      'Shorter context (4k tokens)',
+      'Less accurate than larger vision models',
+    ],
+    minRamGbRecommended: 4,
+    recommendedDevice: 'iPhone 13+, any device with 4 GB RAM',
+    huggingFaceUrl: 'https://huggingface.co/xtuner/llava-phi-3-mini-gguf',
   ),
 ];

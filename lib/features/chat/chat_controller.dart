@@ -1,15 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../attachments/attachment.dart';
 import '../device_recommender/model_catalogue.dart';
 import '../llm/llama_runner.dart';
 import '../llm/llm_providers.dart';
+import '../models/model_providers.dart';
 import '../settings/settings_providers.dart';
 import '../settings/settings_service.dart';
 import '../sync/cloud_sync_service.dart';
 import '../voice/voice_providers.dart';
+import '../diagnostics/diag_log.dart';
 import 'chat_message.dart';
+import 'chat_persistence_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // State
@@ -52,15 +56,46 @@ class ChatState {
 
 class ChatController extends StateNotifier<ChatState> {
   ChatController(this._ref)
-      : super(const ChatState(sessions: [], activeSessionId: null));
+      : super(const ChatState(sessions: [], activeSessionId: null)) {
+    _restoreLocal();
+  }
 
   final Ref _ref;
   StreamSubscription<String>? _tokenSub;
   final _cloudSync = CloudSyncService();
+  final _persistence = ChatPersistenceService();
+
+  // Debounced local persistence — keeps disk writes off the hot path.
+  Timer? _localSaveTimer;
+  bool _restored = false;
+
+  /// Loads saved sessions from disk on startup (best-effort).
+  Future<void> _restoreLocal() async {
+    final saved = await _persistence.load();
+    _restored = true;
+    if (saved == null || saved.sessions.isEmpty) return;
+    // Don't clobber anything created before restore finished.
+    if (state.sessions.isNotEmpty) return;
+    state = state.copyWith(
+      sessions: saved.sessions,
+      activeSessionId:
+          saved.activeSessionId ?? saved.sessions.first.id,
+    );
+  }
+
+  /// Debounced save of all sessions to local disk.
+  void _persistLocal() {
+    if (!_restored) return; // avoid overwriting before initial load completes
+    _localSaveTimer?.cancel();
+    _localSaveTimer = Timer(const Duration(milliseconds: 600), () {
+      _persistence.save(state.sessions, state.activeSessionId);
+    });
+  }
 
   // Debounced cloud save — wait 3s after last change to avoid thrashing
   Timer? _syncTimer;
   void _scheduleCloudSave() {
+    _persistLocal(); // always keep a local copy too
     if (!(_ref.read(iCloudSyncProvider))) return;
     _syncTimer?.cancel();
     _syncTimer = Timer(const Duration(seconds: 3), _saveToCloud);
@@ -167,18 +202,30 @@ class ChatController extends StateNotifier<ChatState> {
     ModelVariant? model,
     List<ChatAttachment> attachments = const [],
     String? displayText, // shown in the bubble; defaults to text
+    Uint8List? imageBytes, // raw image for multimodal (vision) models
   }) async {
     if (text.trim().isEmpty && attachments.isEmpty) return;
 
     // Auto-create a session if none is active
     if (state.activeSession == null) newChat();
 
-    final runner = _ref.read(llamaRunnerProvider);
+    var runner = _ref.read(llamaRunnerProvider);
     if (runner.status != LlamaStatus.ready) {
-      state = state.copyWith(
-        error: 'No model loaded. Open the model picker to choose one.',
-      );
-      return;
+      // The model may have been evicted under memory pressure (e.g. iOS freed
+      // it while the app was backgrounded). Try to silently reload it.
+      final active = _ref.read(activeModelProvider);
+      if (active != null) {
+        try {
+          await _ref.read(modelActionsProvider).loadModel(active);
+        } catch (_) {}
+        runner = _ref.read(llamaRunnerProvider);
+      }
+      if (runner.status != LlamaStatus.ready) {
+        state = state.copyWith(
+          error: 'No model loaded. Open the model picker to choose one.',
+        );
+        return;
+      }
     }
 
     // 1. Add user message (show displayText to the user, send full text to LLM)
@@ -204,7 +251,7 @@ class ChatController extends StateNotifier<ChatState> {
     _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.generating;
 
     // 3. Stream tokens
-    final prompt = _buildPrompt(state.messages, text.trim());
+    final prompt = await _buildPrompt(state.messages);
     final buffer = StringBuffer();
     final temperature = _ref.read(temperatureProvider);
     final topP = _ref.read(topPProvider);
@@ -213,45 +260,95 @@ class ChatController extends StateNotifier<ChatState> {
     final autoSpeak = _ref.read(autoSpeakProvider);
     final voice = _ref.read(voiceServiceProvider);
     // Track which portion has already been sent to TTS so we don't repeat
-    int _ttsSentUpTo = 0;
+    int ttsSentUpTo = 0;
+    // Generation timing for tokens/sec reporting.
+    final genStart = DateTime.now();
+    var tokenCount = 0;
+    var finished = false;
+
+    // Finalises the response exactly once: strips any chat-template stop marker,
+    // updates the message, persists, and speaks (if enabled).
+    void finalize(String raw) {
+      if (finished) return;
+      finished = true;
+
+      // Cut at the earliest stop marker the model may have emitted.
+      var clean = raw;
+      var cutAt = clean.length;
+      for (final s in _kStopSequences) {
+        final i = clean.indexOf(s);
+        if (i >= 0 && i < cutAt) cutAt = i;
+      }
+      clean = clean.substring(0, cutAt).trimRight();
+
+      final elapsedMs = DateTime.now().difference(genStart).inMilliseconds;
+      final tps = elapsedMs > 0 ? tokenCount * 1000 / elapsedMs : 0.0;
+      DiagLog.log('response tokens=$tokenCount tps=${tps.toStringAsFixed(1)} '
+          'autoSpeak=$autoSpeak first120="${clean.length > 120 ? clean.substring(0, 120) : clean}"');
+      _updateLastAssistantMessage(
+        clean,
+        isStreaming: false,
+        tokensPerSec: tps,
+        elapsedMs: elapsedMs,
+      );
+      _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.ready;
+      _maybeSetSessionTitle();
+      _maybeSaveMemory();
+      _persistLocal();
+      _scheduleCloudSave();
+      if (autoSpeak) {
+        if (streamingTts) {
+          final remaining = clean.length > ttsSentUpTo
+              ? clean.substring(ttsSentUpTo).trim()
+              : '';
+          if (remaining.isNotEmpty) voice.speak(remaining);
+        } else {
+          voice.speak(clean);
+        }
+      }
+    }
 
     try {
       await _tokenSub?.cancel();
       _tokenSub = runner.generate(prompt,
-        temperature: temperature, topP: topP, maxTokens: maxTok).listen(
+        temperature: temperature, topP: topP, maxTokens: maxTok,
+        imageBytes: imageBytes).listen(
         (token) {
+          if (finished) return;
+          tokenCount++;
           buffer.write(token);
-          _updateLastAssistantMessage(buffer.toString(), isStreaming: true);
+          final current = buffer.toString();
+
+          // Stop-sequence detection: many GGUFs don't tag their turn-end token
+          // as EOG, so the model would otherwise role-play both sides forever.
+          var stopIdx = -1;
+          for (final s in _kStopSequences) {
+            final i = current.indexOf(s);
+            if (i >= 0 && (stopIdx < 0 || i < stopIdx)) stopIdx = i;
+          }
+          if (stopIdx >= 0) {
+            _tokenSub?.cancel();
+            runner.cancelGeneration();
+            finalize(current);
+            return;
+          }
+
+          _updateLastAssistantMessage(current, isStreaming: true);
           // Streaming TTS: speak each complete sentence as it arrives
           if (streamingTts && autoSpeak) {
-            final text = buffer.toString();
-            final unsent = text.substring(_ttsSentUpTo);
+            final unsent = current.substring(ttsSentUpTo);
             final sentenceEnd = _lastSentenceBoundary(unsent);
             if (sentenceEnd > 0) {
               final chunk = unsent.substring(0, sentenceEnd).trim();
               if (chunk.isNotEmpty) voice.speak(chunk);
-              _ttsSentUpTo += sentenceEnd;
+              ttsSentUpTo += sentenceEnd;
             }
           }
         },
-        onDone: () {
-          final response = buffer.toString();
-          _updateLastAssistantMessage(response, isStreaming: false);
-          _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.ready;
-          _maybeSetSessionTitle();
-          _maybeSaveMemory();
-          _scheduleCloudSave();
-          if (autoSpeak) {
-            if (streamingTts) {
-              // Speak any trailing text not yet sent
-              final remaining = response.substring(_ttsSentUpTo).trim();
-              if (remaining.isNotEmpty) voice.speak(remaining);
-            } else {
-              voice.speak(response);
-            }
-          }
-        },
+        onDone: () => finalize(buffer.toString()),
         onError: (e) {
+          if (finished) return;
+          finished = true;
           _updateLastAssistantMessage(
             'Error: ${e.toString()}',
             isStreaming: false,
@@ -266,6 +363,18 @@ class ChatController extends StateNotifier<ChatState> {
     }
   }
 
+  /// Chat-template turn markers that signal the model has finished its reply.
+  static const _kStopSequences = [
+    '<|im_end|>',
+    '<|im_start|>',
+    '<|eot_id|>',
+    '<|start_header_id|>',
+    '<|end_of_text|>',
+    '<|endoftext|>',
+    '</s>',
+    '<end_of_turn>',
+  ];
+
   /// Returns the index just past the last sentence-ending punctuation in [s].
   static int _lastSentenceBoundary(String s) {
     const endings = {'.', '!', '?', '\n'};
@@ -273,6 +382,29 @@ class ChatController extends StateNotifier<ChatState> {
       if (endings.contains(s[i])) return i + 1;
     }
     return 0;
+  }
+
+  /// Fork the active session at [messageIndex], creating a new session that
+  /// starts with all messages up to (and including) that index. The new
+  /// session becomes active so the user can explore an alternate path.
+  void branchAt(int messageIndex) {
+    final session = state.activeSession;
+    if (session == null) return;
+
+    final history = session.messages.take(messageIndex + 1).toList();
+    final branchSession = ChatSession(
+      id: _uid(),
+      createdAt: DateTime.now(),
+      title: '${session.displayTitle} (branch)',
+      branchedFromSessionId: session.id,
+      branchedAtMessageIndex: messageIndex,
+      messages: history.map((m) => m.copyWith()).toList(),
+    );
+    state = state.copyWith(
+      sessions: [branchSession, ...state.sessions],
+      activeSessionId: branchSession.id,
+    );
+    _scheduleCloudSave();
   }
 
   /// Edit a user message in-place and re-run generation from that point.
@@ -298,6 +430,56 @@ class ChatController extends StateNotifier<ChatState> {
           .toList(),
     );
     await send(newContent);
+  }
+
+  /// Re-answers the most recent user prompt using [model], loading it first.
+  Future<void> regenerateWithModel(ModelVariant model) async {
+    final session = state.activeSession;
+    if (session == null) return;
+
+    // Find the last user message.
+    String? lastUserId;
+    String lastUserContent = '';
+    for (var i = session.messages.length - 1; i >= 0; i--) {
+      if (session.messages[i].isUser) {
+        lastUserId = session.messages[i].id;
+        lastUserContent = session.messages[i].content;
+        break;
+      }
+    }
+    if (lastUserId == null) return;
+
+    try {
+      await _ref.read(modelActionsProvider).loadModel(model);
+    } catch (_) {
+      state = state.copyWith(error: 'Could not load ${model.displayName}.');
+      return;
+    }
+    await editAndRegenerate(lastUserId, lastUserContent);
+  }
+
+  /// Renames a session. Pass null/empty to clear the custom title.
+  void renameSession(String sessionId, String? title) {
+    final trimmed = title?.trim();
+    state = state.copyWith(
+      sessions: state.sessions.map((s) {
+        if (s.id != sessionId) return s;
+        s.title = (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+        return s;
+      }).toList(),
+    );
+    _scheduleCloudSave();
+  }
+
+  /// Toggles whether a session is pinned to the top of the history list.
+  void togglePin(String sessionId) {
+    state = state.copyWith(
+      sessions: state.sessions.map((s) {
+        if (s.id == sessionId) s.pinned = !s.pinned;
+        return s;
+      }).toList(),
+    );
+    _scheduleCloudSave();
   }
 
   void stopGeneration() {
@@ -371,15 +553,79 @@ class ChatController extends StateNotifier<ChatState> {
       createdAt: session.createdAt,
       title: session.title,
       modelId: session.modelId,
+      pinned: session.pinned,
+      branchedFromSessionId: session.branchedFromSessionId,
+      branchedAtMessageIndex: session.branchedAtMessageIndex,
       messages: [...session.messages, msg],
     );
 
     state = state.copyWith(
       sessions: state.sessions.map((s) => s.id == session.id ? updated : s).toList(),
     );
+    _persistLocal();
   }
 
-  void _updateLastAssistantMessage(String content, {required bool isStreaming}) {
+  /// Sets the like/dislike rating on a message. 1 = like, -1 = dislike, 0 clears.
+  void rateMessage(String messageId, int rating) {
+    final session = state.activeSession;
+    if (session == null) return;
+    final messages = session.messages.toList();
+    final idx = messages.indexWhere((m) => m.id == messageId);
+    if (idx < 0) return;
+    final wasDisliked = messages[idx].rating == -1;
+    messages[idx].rating = rating == 0 ? null : rating;
+    final updated = ChatSession(
+      id: session.id,
+      createdAt: session.createdAt,
+      title: session.title,
+      modelId: session.modelId,
+      pinned: session.pinned,
+      branchedFromSessionId: session.branchedFromSessionId,
+      branchedAtMessageIndex: session.branchedAtMessageIndex,
+      messages: messages,
+    );
+    state = state.copyWith(
+      sessions: state.sessions.map((s) => s.id == session.id ? updated : s).toList(),
+    );
+    _persistLocal();
+
+    // A thumbs-down becomes a memory so future answers avoid the same mistake.
+    if (rating == -1 && !wasDisliked) {
+      _recordDislikeFeedback(messages, idx);
+    }
+  }
+
+  /// Stores a concise note about a disliked answer in persistent memory, which
+  /// is injected into future system prompts.
+  void _recordDislikeFeedback(List<ChatMessage> messages, int assistantIdx) {
+    // Find the user question that prompted the disliked reply.
+    String question = '';
+    for (var i = assistantIdx - 1; i >= 0; i--) {
+      if (messages[i].isUser) {
+        question = messages[i].content;
+        break;
+      }
+    }
+    String trim(String s, int n) =>
+        s.length > n ? '${s.substring(0, n).trim()}…' : s.trim();
+
+    if (!_ref.read(memoryEnabledProvider)) return;
+
+    final note = question.isNotEmpty
+        ? 'The user disliked a previous answer to: "${trim(question, 120)}". '
+            'Give a more accurate, helpful, directly-relevant answer to similar questions.'
+        : 'The user disliked a previous answer. Be more accurate, concise and directly relevant.';
+
+    _ref.read(persistentMemoriesProvider.notifier).add(note);
+    _ref.read(settingsServiceProvider).addMemory(note);
+  }
+
+  void _updateLastAssistantMessage(
+    String content, {
+    required bool isStreaming,
+    double? tokensPerSec,
+    int? elapsedMs,
+  }) {
     final session = state.activeSession;
     if (session == null) return;
 
@@ -389,6 +635,8 @@ class ChatController extends StateNotifier<ChatState> {
         messages[i] = messages[i].copyWith(
           content: content,
           isStreaming: isStreaming,
+          tokensPerSec: tokensPerSec,
+          elapsedMs: elapsedMs,
         );
         break;
       }
@@ -399,6 +647,9 @@ class ChatController extends StateNotifier<ChatState> {
       createdAt: session.createdAt,
       title: session.title,
       modelId: session.modelId,
+      pinned: session.pinned,
+      branchedFromSessionId: session.branchedFromSessionId,
+      branchedAtMessageIndex: session.branchedAtMessageIndex,
       messages: messages,
     );
 
@@ -469,6 +720,7 @@ class ChatController extends StateNotifier<ChatState> {
 
   /// After the 6th message, generate a 1-sentence memory and persist it.
   Future<void> _maybeSaveMemory() async {
+    if (!_ref.read(memoryEnabledProvider)) return;
     final session = state.activeSession;
     if (session == null) return;
     final msgs = session.messages.where((m) => !m.isStreaming).toList();
@@ -531,31 +783,48 @@ class ChatController extends StateNotifier<ChatState> {
   ///
   /// ChatML works for SmolLM2, Qwen 2.x, Gemma 3, Phi-4, DeepSeek-R1,
   /// Mistral and most other instruction-tuned models in the catalogue.
-  String _buildPrompt(List<ChatMessage> history, String latestUser) {
-    final family = _ref.read(llamaRunnerProvider).loadedModel?.family ?? '';
-    return family == 'llama'
-        ? _buildLlama3Prompt(history)
-        : _buildChatMLPrompt(history);
-  }
+  Future<String> _buildPrompt(List<ChatMessage> history) async {
+    final runner = _ref.read(llamaRunnerProvider);
 
-  // ── ChatML (default — works for SmolLM2, Qwen, Gemma, Phi, DeepSeek…) ─────
-
-  String _buildChatMLPrompt(List<ChatMessage> history) {
+    // Build the message list (system + visible turns).
     final customPrompt = _ref.read(customSystemPromptProvider);
     final memories = _ref.read(persistentMemoriesProvider);
-
     final defaultSystem =
         'You are PintSizeAi, a private on-device AI assistant. '
         'You are helpful, concise, and honest. '
         'Everything you generate runs locally on the user\'s device — '
         'no data ever leaves the phone.';
-
+    final memoryOn = _ref.read(memoryEnabledProvider);
     var system = customPrompt ?? defaultSystem;
-    if (memories.isNotEmpty) {
+    if (memoryOn && memories.isNotEmpty) {
       system +=
           '\n\nMemory from past conversations:\n${memories.take(5).map((m) => '- $m').join('\n')}';
     }
 
+    final messages = <Map<String, String>>[
+      {'role': 'system', 'content': system},
+    ];
+    for (final msg in history.where((m) => !m.isStreaming || m.isUser)) {
+      messages.add({
+        'role': msg.isUser ? 'user' : 'assistant',
+        'content': msg.content,
+      });
+    }
+
+    // Prefer the model's own chat template (correct for every family); fall
+    // back to ChatML if the model has no embedded template.
+    final native = await runner.applyChatTemplate(messages);
+    final useNative = native != null && native.trim().isNotEmpty;
+    DiagLog.log('template=${useNative ? "NATIVE" : "chatml-fallback"} '
+        'model=${runner.loadedModel?.id} family=${runner.loadedModel?.family} '
+        'msgs=${messages.length}');
+    if (useNative) return native;
+    return _buildChatMLPrompt(system, history);
+  }
+
+  // ── ChatML fallback (SmolLM2, Qwen… ) ─────────────────────────────────────
+
+  String _buildChatMLPrompt(String system, List<ChatMessage> history) {
     final buf = StringBuffer();
     buf.write('<|im_start|>system\n$system<|im_end|>\n');
 
@@ -565,28 +834,6 @@ class ChatController extends StateNotifier<ChatState> {
     }
 
     buf.write('<|im_start|>assistant\n');
-    return buf.toString();
-  }
-
-  // ── Llama 3 format (Llama 3.2 1B/3B, Llama 3.3 8B, Llama 3.1 8B) ─────────
-
-  String _buildLlama3Prompt(List<ChatMessage> history) {
-    const system =
-        'You are PintSizeAi, a private on-device AI assistant. '
-        'You are helpful, concise, and honest. '
-        'Everything you generate runs locally on the user\'s device — '
-        'no data ever leaves the phone.';
-
-    final buf = StringBuffer();
-    buf.write('<|begin_of_text|>');
-    buf.write('<|start_header_id|>system<|end_header_id|>\n$system<|eot_id|>');
-
-    for (final msg in history.where((m) => !m.isStreaming || m.isUser)) {
-      final role = msg.isUser ? 'user' : 'assistant';
-      buf.write('<|start_header_id|>$role<|end_header_id|>\n${msg.content}<|eot_id|>');
-    }
-
-    buf.write('<|start_header_id|>assistant<|end_header_id|>\n');
     return buf.toString();
   }
 

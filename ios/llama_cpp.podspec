@@ -125,6 +125,8 @@ Pod::Spec.new do |s|
       '"$(PODS_TARGET_SRCROOT)/llama.cpp/ggml/include"',
       '"$(PODS_TARGET_SRCROOT)/llama.cpp/ggml/src"',
       '"$(PODS_TARGET_SRCROOT)/llama.cpp/ggml/src/ggml-cpu"',
+      '"$(PODS_TARGET_SRCROOT)/llama.cpp/tools/mtmd"',
+      '"$(PODS_TARGET_SRCROOT)/llama.cpp/vendor"',
     ].join(' '),
     'GCC_PREPROCESSOR_DEFINITIONS' => [
       '$(inherited)',

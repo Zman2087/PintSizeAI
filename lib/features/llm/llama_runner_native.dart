@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import '../device_recommender/model_catalogue.dart';
 import 'llama_runner.dart';
@@ -15,6 +16,10 @@ class LlamaRunnerNative implements LlamaRunner {
   LlamaStatus _status = LlamaStatus.idle;
   ModelVariant? _loadedModel;
   String? _lastError;
+  bool _hasVision = false;
+
+  @override
+  bool get hasVision => _hasVision;
 
   @override
   LlamaStatus get status => _status;
@@ -39,6 +44,7 @@ class LlamaRunnerNative implements LlamaRunner {
         'contextLength': model.contextLength.clamp(512, 4096),
       });
       _loadedModel = model;
+      _hasVision = false; // reset; projector must be (re)loaded per model
       _status = LlamaStatus.ready;
     } on PlatformException catch (e) {
       _lastError = e.message;
@@ -48,9 +54,35 @@ class LlamaRunnerNative implements LlamaRunner {
   }
 
   @override
+  Future<bool> loadProjector(String mmprojPath) async {
+    try {
+      await _method.invokeMethod<void>('loadProjector', {'path': mmprojPath});
+      _hasVision = true;
+      return true;
+    } on PlatformException catch (e) {
+      _lastError = e.message;
+      _hasVision = false;
+      return false;
+    }
+  }
+
+  @override
+  Future<String?> applyChatTemplate(List<Map<String, String>> messages) async {
+    try {
+      return await _method.invokeMethod<String>('applyChatTemplate', {
+        'messages': messages,
+        'addAssistant': true,
+      });
+    } on PlatformException {
+      return null;
+    }
+  }
+
+  @override
   Future<void> unload() async {
     await _method.invokeMethod<void>('unloadModel');
     _loadedModel = null;
+    _hasVision = false;
     _status = LlamaStatus.idle;
   }
 
@@ -62,6 +94,7 @@ class LlamaRunnerNative implements LlamaRunner {
     int maxTokens = 512,
     double temperature = 0.7,
     double topP = 0.9,
+    Uint8List? imageBytes,
   }) async* {
     _status = LlamaStatus.generating;
 
@@ -71,6 +104,7 @@ class LlamaRunnerNative implements LlamaRunner {
         'maxTokens': maxTokens,
         'temperature': temperature,
         'topP': topP,
+        if (imageBytes != null) 'imageBytes': imageBytes,
       });
 
       await for (final token in stream.cast<String>()) {

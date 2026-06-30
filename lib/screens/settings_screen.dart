@@ -8,11 +8,20 @@ import '../features/image_gen/image_gen_providers.dart';
 import '../features/models/model_providers.dart';
 import '../features/settings/settings_providers.dart';
 import '../features/settings/settings_service.dart';
+import '../features/voice/voice_providers.dart';
+import '../features/voice/voice_service.dart';
 import '../theme/theme.dart';
 import 'image_gen_screen.dart';
 import 'legal/privacy_policy_screen.dart';
 import 'legal/recommended_specs_screen.dart';
 import 'legal/terms_of_service_screen.dart';
+
+/// GoFundMe campaign for keeping PintSize AI on the App Store.
+/// TODO: replace with the real campaign URL once the page is set up.
+const String kGoFundMeUrl = 'https://www.gofundme.com/';
+
+/// Buy Me a Coffee tip link.
+const String kBuyMeACoffeeUrl = 'https://buymeacoffee.com/zwylie';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -188,6 +197,31 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 20),
 
           // About
+          _SectionHeader('Support'),
+          _Card(
+            child: Column(
+              children: [
+                _LinkRow(
+                  icon: Icons.favorite_outline,
+                  title: 'Keep PintSize AI on the App Store',
+                  subtitle: 'Chip in via our GoFundMe',
+                  url: kGoFundMeUrl,
+                  iconColor: const Color(0xFFEF6FA3),
+                ),
+                const Divider(height: 1, color: AppColors.borderDefault),
+                _LinkRow(
+                  icon: Icons.coffee_outlined,
+                  title: 'Buy me a coffee',
+                  subtitle: 'Support the developer with a tip',
+                  url: kBuyMeACoffeeUrl,
+                  iconColor: const Color(0xFFFFDD00),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
           _SectionHeader('About'),
           _Card(
             child: Column(
@@ -337,8 +371,9 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _Card extends StatelessWidget {
-  const _Card({required this.child});
+  const _Card({required this.child, this.padding = EdgeInsets.zero});
   final Widget child;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -348,6 +383,7 @@ class _Card extends StatelessWidget {
           border: Border.all(color: AppColors.borderDefault),
         ),
         clipBehavior: Clip.antiAlias,
+        padding: padding,
         child: child,
       );
 }
@@ -629,7 +665,7 @@ class _CapRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -682,6 +718,7 @@ class _SystemPromptCardState extends ConsumerState<_SystemPromptCard> {
   @override
   Widget build(BuildContext context) {
     return _Card(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -741,8 +778,10 @@ class _SystemPromptCardState extends ConsumerState<_SystemPromptCard> {
 class _MemoryCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(memoryEnabledProvider);
     final memories = ref.watch(persistentMemoriesProvider);
     return _Card(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -750,47 +789,49 @@ class _MemoryCard extends ConsumerWidget {
             children: [
               const Icon(Icons.psychology_outlined,
                   size: 18, color: AppColors.textMuted),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text('Persistent memory', style: AppTypography.modelName),
-              ),
-              if (memories.isNotEmpty)
-                GestureDetector(
-                  onTap: () async {
-                    ref.read(persistentMemoriesProvider.notifier).clear();
-                    await ref.read(settingsServiceProvider).clearMemories();
-                  },
-                  child: Text('Clear',
-                      style: AppTypography.badge
-                          .copyWith(color: const Color(0xFFEF4444))),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Remember across chats',
+                        style: AppTypography.modelName),
+                    Text(
+                      'Let the AI recall context and your feedback from past chats.',
+                      style: AppTypography.modelDesc,
+                    ),
+                  ],
                 ),
+              ),
+              Switch(
+                value: enabled,
+                onChanged: (v) {
+                  ref.read(memoryEnabledProvider.notifier).set(v);
+                  ref.read(settingsServiceProvider).setMemoryEnabled(v);
+                  // Turning memory off clears anything already stored.
+                  if (!v) {
+                    ref.read(persistentMemoriesProvider.notifier).clear();
+                    ref.read(settingsServiceProvider).clearMemories();
+                  }
+                },
+                activeColor: AppColors.accentGreen,
+              ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'The AI automatically summarises conversations and remembers them across sessions.',
-            style: AppTypography.modelDesc,
-          ),
-          if (memories.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            ...memories.map((m) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('• ',
-                          style: TextStyle(color: AppColors.textMuted)),
-                      Expanded(
-                        child: Text(m, style: AppTypography.modelDesc),
-                      ),
-                    ],
-                  ),
-                )),
-          ] else ...[
+          if (enabled && memories.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text('No memories yet — start chatting!',
-                style: AppTypography.modelDesc.copyWith(
-                    fontStyle: FontStyle.italic)),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: () async {
+                  ref.read(persistentMemoriesProvider.notifier).clear();
+                  await ref.read(settingsServiceProvider).clearMemories();
+                },
+                child: Text('Clear ${memories.length} stored memories',
+                    style: AppTypography.badge
+                        .copyWith(color: const Color(0xFFEF4444))),
+              ),
+            ),
           ],
         ],
       ),
@@ -807,6 +848,7 @@ class _VoiceSettingsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final autoSpeak = ref.watch(autoSpeakProvider);
     return _Card(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       child: Column(
         children: [
           Row(
@@ -835,6 +877,34 @@ class _VoiceSettingsCard extends ConsumerWidget {
             ],
           ),
           const Divider(height: 1, color: AppColors.borderDefault, indent: 30),
+          const SizedBox(height: 4),
+          // AI voice picker
+          InkWell(
+            onTap: () => _showVoicePicker(context, ref),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.graphic_eq,
+                      size: 18, color: AppColors.textMuted),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('AI voice', style: AppTypography.modelName),
+                        Text('Choose the voice the AI speaks with.',
+                            style: AppTypography.modelDesc),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right,
+                      size: 18, color: AppColors.textDim),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 1, color: AppColors.borderDefault, indent: 30),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -857,6 +927,106 @@ class _VoiceSettingsCard extends ConsumerWidget {
       ),
     );
   }
+
+  void _showVoicePicker(BuildContext context, WidgetRef ref) {
+    final voice = ref.read(voiceServiceProvider);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceSidebar,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        maxChildSize: 0.92,
+        builder: (_, scroll) => FutureBuilder<List<VoiceOption>>(
+          future: voice.listVoices(),
+          builder: (ctx, snap) {
+            if (!snap.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final voices = snap.data!;
+            final selected = ref.read(selectedVoiceProvider);
+            return ListView(
+              controller: scroll,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
+                  child: Text('AI voice',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600)),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: Text(
+                    'For the most human voices, pick an "Enhanced" or "Premium" '
+                    'one below. If none appear, download them in iOS Settings ▸ '
+                    'Accessibility ▸ Spoken Content ▸ Voices.',
+                    style: TextStyle(color: AppColors.textDim, fontSize: 12),
+                  ),
+                ),
+                _VoiceTile(
+                  name: 'System default',
+                  detail: 'Use the device default voice',
+                  isSelected: selected == null,
+                  onTap: () {
+                    ref.read(selectedVoiceProvider.notifier).update(null);
+                    ref.read(settingsServiceProvider).setVoiceId(null);
+                    voice.setVoice(null);
+                    Navigator.pop(ctx);
+                  },
+                ),
+                for (final v in voices)
+                  _VoiceTile(
+                    name: v.name,
+                    detail: '${v.lang} · ${v.quality}',
+                    isSelected: selected == v.id,
+                    onTap: () async {
+                      ref.read(selectedVoiceProvider.notifier).update(v.id);
+                      ref.read(settingsServiceProvider).setVoiceId(v.id);
+                      await voice.setVoice(v.id);
+                      await voice.speak('Hi, this is how I will sound.');
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    },
+                  ),
+                const SizedBox(height: 16),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _VoiceTile extends StatelessWidget {
+  const _VoiceTile({
+    required this.name,
+    required this.detail,
+    required this.isSelected,
+    required this.onTap,
+  });
+  final String name;
+  final String detail;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(name, style: const TextStyle(color: Colors.white)),
+      subtitle: Text(detail,
+          style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+      trailing: isSelected
+          ? const Icon(Icons.check, color: AppColors.accentGreen, size: 18)
+          : null,
+      onTap: onTap,
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -873,6 +1043,7 @@ class _ModelParamsCard extends ConsumerWidget {
     final svc = ref.read(settingsServiceProvider);
 
     return _Card(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -998,6 +1169,7 @@ class _ICloudSyncCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final enabled = ref.watch(iCloudSyncProvider);
     return _Card(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       child: Column(
         children: [
           Row(

@@ -55,10 +55,47 @@ class VoiceService {
   Future<void> setRate(double rate) =>
       _method.invokeMethod<void>('setRate', rate);
 
+  /// Lists the device's available TTS voices, best quality first.
+  Future<List<VoiceOption>> listVoices() async {
+    try {
+      final raw = await _method.invokeMethod<List<dynamic>>('listVoices');
+      if (raw == null) return [];
+      return raw.map((e) {
+        final m = (e as Map).cast<String, dynamic>();
+        return VoiceOption(
+          id: m['id'] as String? ?? '',
+          name: m['name'] as String? ?? 'Voice',
+          lang: m['lang'] as String? ?? '',
+          quality: m['quality'] as String? ?? 'Standard',
+        );
+      }).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Selects a voice by identifier. Pass null/empty to use the system default.
+  Future<void> setVoice(String? voiceId) =>
+      _method.invokeMethod<void>('setVoice', voiceId ?? '');
+
   void dispose() {
     _sub?.cancel();
     _ctrl.close();
   }
+}
+
+/// A selectable text-to-speech voice.
+class VoiceOption {
+  const VoiceOption({
+    required this.id,
+    required this.name,
+    required this.lang,
+    required this.quality,
+  });
+  final String id;
+  final String name;
+  final String lang;
+  final String quality;
 }
 
 // ── Event types ───────────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import '../../features/device_recommender/model_catalogue.dart';
 import 'llama_runner.dart';
 
@@ -20,6 +21,10 @@ class LlamaRunnerMock implements LlamaRunner {
   String? get lastError => _lastError;
   String? _lastError;
 
+  @override
+  bool get hasVision => _hasVision;
+  bool _hasVision = false;
+
   bool _cancelled = false;
 
   // ── Load / unload ──────────────────────────────────────────────────────────
@@ -37,8 +42,20 @@ class LlamaRunnerMock implements LlamaRunner {
     await Future.delayed(const Duration(milliseconds: 1800));
 
     _loadedModel = model;
+    _hasVision = false;
     _status = LlamaStatus.ready;
   }
+
+  @override
+  Future<bool> loadProjector(String mmprojPath) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    _hasVision = true;
+    return true;
+  }
+
+  @override
+  Future<String?> applyChatTemplate(List<Map<String, String>> messages) async =>
+      null; // mock has no native template; controller falls back to ChatML
 
   @override
   Future<void> unload() async {
@@ -56,6 +73,7 @@ class LlamaRunnerMock implements LlamaRunner {
     int maxTokens = 512,
     double temperature = 0.7,
     double topP = 0.9,
+    Uint8List? imageBytes,
   }) async* {
     if (_status != LlamaStatus.ready) {
       yield* Stream.error(

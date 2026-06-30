@@ -3,6 +3,7 @@ import 'device_profile.dart';
 import 'model_catalogue.dart';
 import 'model_recommender.dart';
 import '../models/remote_catalogue_service.dart';
+import '../models/custom_models_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Device profile provider
@@ -60,11 +61,24 @@ final modelRecommendationProvider =
 final rankedModelsProvider = FutureProvider<List<PickerModel>>((ref) async {
   final rec = await ref.watch(modelRecommendationProvider.future);
   final catalogue = await ref.watch(catalogueProvider.future);
+  // User-imported (Hugging Face) models appear alongside the built-in ones.
+  final custom = ref.watch(customModelsProvider);
 
   // Build a map of scores for models that passed the gates
   final scored = {for (final r in rec.allRanked) r.model.id: r};
 
   final result = <PickerModel>[];
+
+  // Imported models first (the user explicitly chose them).
+  for (final model in custom) {
+    result.add(PickerModel(
+      model: model,
+      isRecommended: false,
+      estimatedTokensPerSec: 0,
+      fitsDevice: true,
+      eliminationReason: null,
+    ));
+  }
 
   for (final model in catalogue) {
     if (scored.containsKey(model.id)) {

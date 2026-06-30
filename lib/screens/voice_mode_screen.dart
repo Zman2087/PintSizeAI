@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/chat/chat_message.dart';
 import '../features/chat/chat_providers.dart';
+import '../features/settings/settings_providers.dart';
 import '../features/voice/voice_providers.dart';
 import '../features/voice/voice_service.dart';
-import '../theme/theme.dart';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -38,8 +38,15 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
   _Phase _phase = _Phase.idle;
   String _transcript = '';
   String _aiText = '';
-  bool _waitingForStream = false;
-  String? _lastStreamingMsgId;
+
+  // True between sending a prompt and the assistant finishing its turn.
+  bool _awaitingResponse = false;
+  String? _streamingMsgId;
+  bool _spoken = false;
+
+  // Settings we temporarily override so the AI always talks back in voice mode.
+  bool _savedAutoSpeak = false;
+  bool _savedStreamingTts = false;
 
   @override
   void initState() {
@@ -49,6 +56,17 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
 
+    // Force the controller to speak the full response aloud while voice mode
+    // is open, then restore the user's preferences on exit.
+    _savedAutoSpeak = ref.read(autoSpeakProvider);
+    _savedStreamingTts = ref.read(streamingTtsProvider);
+    ref.read(autoSpeakProvider.notifier).set(true);
+    ref.read(streamingTtsProvider.notifier).set(false);
+
+    // Single persistent event subscription drives the whole loop.
+    final voice = ref.read(voiceServiceProvider);
+    _voiceSub = voice.events.listen(_onVoiceEvent);
+
     WidgetsBinding.instance.addPostFrameCallback((_) => _startListening());
   }
 
@@ -56,13 +74,38 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
   void dispose() {
     _pulse.dispose();
     _voiceSub?.cancel();
+    final voice = ref.read(voiceServiceProvider);
+    voice.stopListening();
+    voice.stopSpeaking();
+    // Restore the user's TTS preferences.
+    try {
+      ref.read(autoSpeakProvider.notifier).set(_savedAutoSpeak);
+      ref.read(streamingTtsProvider.notifier).set(_savedStreamingTts);
+    } catch (_) {}
     super.dispose();
   }
 
   // ── Voice loop ───────────────────────────────────────────────────────────────
 
-  void _setPhase(_Phase p) {
-    if (mounted) setState(() => _phase = p);
+  void _onVoiceEvent(VoiceEvent evt) {
+    if (!mounted) return;
+    switch (evt) {
+      case VoiceTranscriptEvent(:final text, :final isFinal):
+        setState(() => _transcript = text);
+        if (isFinal && text.trim().isNotEmpty && _phase == _Phase.listening) {
+          _sendText(text.trim());
+        }
+      case VoiceListeningStoppedEvent():
+        // iOS silence/timeout while we were still listening with nothing said.
+        if (_phase == _Phase.listening && _transcript.trim().isEmpty) {
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted && _phase == _Phase.listening) _startListening();
+          });
+        }
+      case VoiceSpeakingDoneEvent():
+        // The AI finished talking → listen for the next turn.
+        if (_phase == _Phase.speaking) _startListening();
+    }
   }
 
   Future<void> _startListening() async {
@@ -71,98 +114,54 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
     setState(() {
       _phase = _Phase.listening;
       _transcript = '';
-      _aiText = '';
-      _waitingForStream = false;
-      _lastStreamingMsgId = null;
     });
-
     await voice.startListening();
-
-    _voiceSub?.cancel();
-    _voiceSub = voice.events.listen((evt) {
-      if (!mounted) return;
-      switch (evt) {
-        case VoiceTranscriptEvent(:final text, :final isFinal):
-          setState(() => _transcript = text);
-          if (isFinal && text.trim().isNotEmpty) {
-            _sendText(text.trim());
-          }
-        case VoiceListeningStoppedEvent():
-          if (_phase == _Phase.listening) {
-            // iOS silence timeout — restart
-            Future.delayed(
-              const Duration(milliseconds: 500),
-              _startListening,
-            );
-          }
-        case VoiceSpeakingDoneEvent():
-          _startListening();
-      }
-    });
   }
 
   Future<void> _sendText(String text) async {
-    _voiceSub?.cancel();
     final voice = ref.read(voiceServiceProvider);
     await voice.stopListening();
-
     if (!mounted) return;
+
     setState(() {
       _phase = _Phase.processing;
       _aiText = '';
-      _waitingForStream = true;
+      _awaitingResponse = true;
+      _streamingMsgId = null;
+      _spoken = false;
     });
 
     ref.read(chatControllerProvider.notifier).send(text);
   }
 
-  Future<void> _speakAiText(String text) async {
-    if (!mounted || text.isEmpty) {
-      _startListening();
-      return;
-    }
-    setState(() => _phase = _Phase.speaking);
-    _voiceSub?.cancel();
-    final voice = ref.read(voiceServiceProvider);
-    await voice.speak(text);
-
-    _voiceSub = voice.events.listen((evt) {
-      if (!mounted) return;
-      if (evt is VoiceSpeakingDoneEvent) {
-        _voiceSub?.cancel();
-        _startListening();
-      }
-    });
-  }
-
-  // ── Watch messages for streaming completion ───────────────────────────────────
+  // ── Watch messages for streaming progress / completion ─────────────────────────
 
   void _onMessagesUpdate(List<ChatMessage> messages) {
-    if (!_waitingForStream) return;
+    if (!_awaitingResponse) return;
 
-    // Find the last assistant message
     final last = messages.lastOrNull;
     if (last == null || last.role != MessageRole.assistant) return;
 
-    if (mounted) setState(() => _aiText = last.content);
+    setState(() => _aiText = last.content);
 
     if (last.isStreaming) {
-      // Still coming in — show processing→speaking transition
-      if (_phase == _Phase.processing && last.content.isNotEmpty) {
+      _streamingMsgId = last.id;
+      // Keep showing "Thinking…" while tokens stream in; the controller will
+      // speak the full response once streaming completes.
+      if (_phase != _Phase.processing) {
+        setState(() => _phase = _Phase.processing);
+      }
+    } else if (!_spoken && last.id == _streamingMsgId) {
+      // Streaming just finished. The chat controller speaks the response
+      // (autoSpeak is forced on); we switch to the speaking phase and wait for
+      // the speaking_done event to relisten.
+      _spoken = true;
+      _awaitingResponse = false;
+      if (last.content.trim().isEmpty) {
+        _startListening();
+      } else {
         setState(() => _phase = _Phase.speaking);
       }
-      _lastStreamingMsgId = last.id;
-    } else if (_lastStreamingMsgId != null &&
-        last.id == _lastStreamingMsgId &&
-        !last.isStreaming) {
-      // Stream just finished
-      _waitingForStream = false;
-      _lastStreamingMsgId = null;
-      _speakAiText(last.content);
-    } else if (_waitingForStream && !last.isStreaming && last.content.isNotEmpty) {
-      // Catch first arrival if we missed the streaming message
-      _waitingForStream = false;
-      _speakAiText(last.content);
     }
   }
 
@@ -170,7 +169,6 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Watch messages to detect streaming completion
     ref.listen(messagesProvider, (_, messages) => _onMessagesUpdate(messages));
 
     return Scaffold(
@@ -192,12 +190,8 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
                         fontWeight: FontWeight.w600),
                   ),
                   const Spacer(),
-                  _CloseButton(onTap: () async {
-                    _voiceSub?.cancel();
-                    final voice = ref.read(voiceServiceProvider);
-                    await voice.stopListening();
-                    await voice.stopSpeaking();
-                    if (mounted) Navigator.of(context).pop();
+                  _CloseButton(onTap: () {
+                    Navigator.of(context).pop();
                   }),
                 ],
               ),
@@ -244,6 +238,7 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
                 onTap: () async {
                   final voice = ref.read(voiceServiceProvider);
                   await voice.stopSpeaking();
+                  _awaitingResponse = false;
                   _startListening();
                 },
                 child: Container(
@@ -266,10 +261,10 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
   }
 
   String _phaseLabel(_Phase p) => switch (p) {
-        _Phase.idle => 'Starting...',
-        _Phase.listening => 'Listening...',
-        _Phase.processing => 'Thinking...',
-        _Phase.speaking => 'Speaking...',
+        _Phase.idle => 'Starting…',
+        _Phase.listening => 'Listening…',
+        _Phase.processing => 'Thinking…',
+        _Phase.speaking => 'Speaking…',
       };
 }
 

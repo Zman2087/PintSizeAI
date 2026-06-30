@@ -43,4 +43,15 @@ class MediaService {
       return null;
     }
   }
+
+  /// Transcribe an audio file (.m4a, .mp3, .wav, .caf) to text using
+  /// iOS SFSpeechRecognizer. Returns null if no speech detected.
+  Future<String?> transcribeAudio(String path) async {
+    try {
+      return await _method.invokeMethod<String>('transcribeAudio', {'path': path});
+    } on PlatformException catch (e) {
+      if (e.code == 'NO_SPEECH' || e.code == 'PERMISSION_DENIED') return null;
+      return null;
+    }
+  }
 }

@@ -32,9 +32,17 @@ final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
     private var task: SFSpeechRecognitionTask?
     private var eventSink: FlutterEventSink?
 
+    // Silence detection: SFSpeechRecognizer rarely fires isFinal on its own
+    // when fed a continuous mic stream, so we finalize after a pause in speech.
+    private var silenceTimer: Timer?
+    private var lastTranscript: String = ""
+    private var didFinalize: Bool = false
+    private let silenceTimeout: TimeInterval = 1.6
+
     // ── TTS ───────────────────────────────────────────────────────────────────
     private let synthesizer = AVSpeechSynthesizer()
     private var speechRate: Float = AVSpeechUtteranceDefaultSpeechRate
+    private var selectedVoiceId: String?
 
     // ── MethodChannel ─────────────────────────────────────────────────────────
 
@@ -77,6 +85,37 @@ final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
         case "isSpeaking":
             result(synthesizer.isSpeaking)
 
+        case "listVoices":
+            // English voices first, then the rest; higher quality first.
+            let voices = AVSpeechSynthesisVoice.speechVoices()
+                .sorted { a, b in
+                    if a.quality.rawValue != b.quality.rawValue {
+                        return a.quality.rawValue > b.quality.rawValue
+                    }
+                    return a.name < b.name
+                }
+                .map { v -> [String: Any] in
+                    let q: String
+                    switch v.quality {
+                    case .premium:  q = "Premium"
+                    case .enhanced: q = "Enhanced"
+                    default:        q = "Standard"
+                    }
+                    return [
+                        "id": v.identifier,
+                        "name": v.name,
+                        "lang": v.language,
+                        "quality": q,
+                    ]
+                }
+            result(voices)
+
+        case "setVoice":
+            // nil/empty clears back to the default system voice.
+            selectedVoiceId = (call.arguments as? String)?.isEmpty == false
+                ? (call.arguments as? String) : nil
+            result(nil)
+
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -105,6 +144,9 @@ final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
             return
         }
 
+        lastTranscript = ""
+        didFinalize = false
+
         let req = SFSpeechAudioBufferRecognitionRequest()
         req.shouldReportPartialResults = true
         req.requiresOnDeviceRecognition = false
@@ -131,21 +173,63 @@ final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
                 let text = res.bestTranscription.formattedString
                 let isFinal = res.isFinal
                 DispatchQueue.main.async {
-                    self.eventSink?(["type": "transcript", "text": text, "isFinal": isFinal])
+                    self.lastTranscript = text
+                    // Stream the partial transcript (never final here — we
+                    // decide finality via silence detection below).
+                    self.eventSink?(["type": "transcript", "text": text, "isFinal": false])
+                    if isFinal {
+                        self.finalizeUtterance()
+                    } else {
+                        // Reset the silence countdown on every new partial.
+                        self.restartSilenceTimer()
+                    }
                 }
-                if isFinal { self.stopListening(sendEvent: true) }
             } else if let err = err {
+                _ = err
                 DispatchQueue.main.async {
-                    self.eventSink?(["type": "listening_stopped"])
+                    // If we already captured speech, finalize it rather than
+                    // dropping it on a recognizer error/timeout.
+                    if !self.lastTranscript.isEmpty && !self.didFinalize {
+                        self.finalizeUtterance()
+                    } else {
+                        self.eventSink?(["type": "listening_stopped"])
+                        self.stopListening(sendEvent: false)
+                    }
                 }
-                self.stopListening(sendEvent: false)
             }
         }
 
         result(nil)
     }
 
+    /// (Re)starts the silence countdown. Must run on the main thread.
+    private func restartSilenceTimer() {
+        silenceTimer?.invalidate()
+        silenceTimer = Timer.scheduledTimer(
+            withTimeInterval: silenceTimeout, repeats: false
+        ) { [weak self] _ in
+            self?.finalizeUtterance()
+        }
+    }
+
+    /// Emits the captured transcript as final and stops the audio session.
+    /// Idempotent — guarded by didFinalize.
+    private func finalizeUtterance() {
+        if didFinalize { return }
+        didFinalize = true
+        silenceTimer?.invalidate()
+        silenceTimer = nil
+
+        let text = lastTranscript
+        if !text.isEmpty {
+            eventSink?(["type": "transcript", "text": text, "isFinal": true])
+        }
+        stopListening(sendEvent: text.isEmpty)
+    }
+
     private func stopListening(sendEvent: Bool) {
+        silenceTimer?.invalidate()
+        silenceTimer = nil
         audioEngine.stop()
         if audioEngine.inputNode.numberOfInputs > 0 {
             audioEngine.inputNode.removeTap(onBus: 0)
@@ -175,8 +259,30 @@ final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
         let utterance = AVSpeechUtterance(string: text)
         utterance.rate = speechRate
         utterance.pitchMultiplier = 1.0
-        utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.identifier)
+        if let id = selectedVoiceId, let v = AVSpeechSynthesisVoice(identifier: id) {
+            utterance.voice = v
+        } else {
+            utterance.voice = VoicePlugin.bestDefaultVoice()
+        }
         synthesizer.speak(utterance)
+    }
+
+    /// Picks the most natural-sounding voice: highest quality first
+    /// (Premium > Enhanced > Default), preferring Australian English on ties,
+    /// then any English. This avoids defaulting to a robotic Standard voice
+    /// when a better one is installed.
+    private static func bestDefaultVoice() -> AVSpeechSynthesisVoice? {
+        let all = AVSpeechSynthesisVoice.speechVoices()
+        let english = all.filter { $0.language.lowercased().hasPrefix("en") }
+        let pool = english.isEmpty ? all : english
+        func score(_ v: AVSpeechSynthesisVoice) -> Int {
+            var s = v.quality.rawValue * 10           // quality dominates
+            if v.language.lowercased().hasPrefix("en-au") { s += 3 } // prefer AU
+            else if v.language.lowercased().hasPrefix("en-gb") { s += 1 }
+            return s
+        }
+        return pool.max { a, b in score(a) < score(b) }
+            ?? AVSpeechSynthesisVoice(language: Locale.current.identifier)
     }
 
     // ── AVSpeechSynthesizerDelegate ───────────────────────────────────────────

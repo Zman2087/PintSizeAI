@@ -10,6 +10,8 @@ import '../features/models/model_download_service.dart';
 import '../features/models/model_providers.dart';
 import '../theme/app_widgets.dart';
 import '../theme/theme.dart';
+import 'model_detail_sheet.dart';
+import 'discover_models_screen.dart';
 import 'image_gen_screen.dart';
 
 void showModelPicker(BuildContext context) {
@@ -72,7 +74,43 @@ class _ModelPickerSheet extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
+          // Discover more models on Hugging Face
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: InkWell(
+              onTap: () => DiscoverModelsScreen.open(context),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceOverlay,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.borderDefault),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.travel_explore,
+                        size: 18, color: AppColors.accentGreen),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Discover more models',
+                              style: AppTypography.modelName),
+                          Text('Browse the latest GGUF models on Hugging Face',
+                              style: AppTypography.modelDesc),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right,
+                        size: 18, color: AppColors.textDim),
+                  ],
+                ),
+              ),
+            ),
+          ),
           const Divider(height: 1),
           // Model list
           Expanded(
@@ -110,7 +148,7 @@ class _ModelPickerSheet extends ConsumerWidget {
                       isActive: isActive,
                       isLoading: isLoading,
                       hasUpdate: hasUpdate,
-                      onTap: () => _handleTap(context, ref, picker.model, dl),
+                      onTap: () => showModelDetail(context, picker.model),
                     );
                   },
                   itemCount: _buildItems(models, downloads).length,

@@ -215,6 +215,10 @@ class _ModelDetailSheet extends ConsumerWidget {
       Navigator.of(context).pop();
       return;
     }
+    if (dl.status == DownloadStatus.downloading) {
+      ref.read(modelActionsProvider).cancelDownload(model.id);
+      return;
+    }
     if (dl.status == DownloadStatus.downloaded) {
       ref.read(modelActionsProvider).loadModel(model).then((_) {
         if (context.mounted) Navigator.of(context).pop();
@@ -222,7 +226,7 @@ class _ModelDetailSheet extends ConsumerWidget {
       return;
     }
     ref.read(modelActionsProvider).download(model);
-    Navigator.of(context).pop();
+    // Keep the sheet open so the user sees the live download progress.
   }
 }
 
@@ -363,8 +367,8 @@ class _ActionButton extends StatelessWidget {
       );
     }
     if (dl.status == DownloadStatus.downloading) {
-      return FilledButton(
-        onPressed: null,
+      return OutlinedButton(
+        onPressed: onTap, // tap to cancel
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -375,8 +379,8 @@ class _ActionButton extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               dl.totalBytes > 0
-                  ? 'Downloading ${(dl.progress * 100).toInt()}%'
-                  : 'Downloading…',
+                  ? 'Downloading ${(dl.progress * 100).toInt()}%  ·  Tap to cancel'
+                  : 'Downloading…  ·  Tap to cancel',
             ),
           ],
         ),

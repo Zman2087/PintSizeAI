@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
@@ -17,11 +18,17 @@ import '../features/llm/llama_runner.dart';
 import '../features/llm/llm_providers.dart';
 import '../features/models/model_download_service.dart';
 import '../features/models/model_providers.dart';
+import '../features/models/custom_models_service.dart';
 import '../features/settings/settings_providers.dart';
 import '../features/media/media_service.dart';
 import '../features/voice/voice_providers.dart';
 import '../features/voice/voice_service.dart';
 import '../features/web_search/web_search_service.dart';
+import '../features/web_search/url_fetch_service.dart';
+import '../features/web_search/stock_service.dart';
+import '../features/documents/document_retrieval_service.dart';
+import '../features/diagnostics/diag_log.dart';
+import '../widgets/stock_chart_card.dart';
 import '../theme/app_widgets.dart';
 import '../theme/theme.dart';
 import 'history_drawer.dart';
@@ -109,6 +116,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _partialTranscript = '';
   StreamSubscription<VoiceEvent>? _voiceSub;
   final _webSearch = WebSearchService();
+  final _urlFetch = UrlFetchService();
+  final _docRetrieval = DocumentRetrievalService();
+  final _stock = StockService();
   final _media = MediaService();
 
   @override
@@ -133,7 +143,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final lastId = await ref.read(settingsServiceProvider).getLastModelId();
     if (lastId == null || !mounted) return;
 
-    final model = kModelCatalogue.where((m) => m.id == lastId).firstOrNull;
+    // Look in both the built-in catalogue and user-imported (HF) models.
+    var model = kModelCatalogue.where((m) => m.id == lastId).firstOrNull;
+    model ??= ref.read(customModelsProvider).where((m) => m.id == lastId).firstOrNull;
     if (model == null) return;
 
     final storage = ref.read(modelStorageProvider);
@@ -243,19 +255,207 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _sendEnriched(String text,
       {List<ChatAttachment> attachments = const []}) async {
+    // img2img auto-detect: if message sounds like an image edit + image attached
+    final hasImage = attachments.any((a) => a.isImage);
+    if (hasImage && _isImageEditRequest(text)) {
+      final imgAtt = attachments.firstWhere((a) => a.isImage);
+      if (imgAtt.thumbnailBytes != null) {
+        _generateImg2Img(imgAtt.thumbnailBytes!, text);
+        return;
+      }
+    }
+
+    // Real multimodal vision: if a vision-capable model is loaded and an image
+    // is attached, hand the raw image straight to the model instead of relying
+    // on the Vision-framework OCR/scene description.
+    final runner = ref.read(llamaRunnerProvider);
+    if (hasImage && runner.hasVision) {
+      final imgAtt = attachments.firstWhere((a) => a.isImage);
+      if (imgAtt.thumbnailBytes != null) {
+        ref.read(chatControllerProvider.notifier).send(
+              text,
+              attachments: attachments,
+              imageBytes: imgAtt.thumbnailBytes,
+            );
+        return;
+      }
+    }
+
+    // Live stock lookup: if the message looks like a price question, fetch a
+    // real quote and show a price + chart card.
+    if (StockService.looksLikeStockQuery(text)) {
+      _showSnack('Fetching live market data…');
+      final quote = await _stock.lookup(text);
+      DiagLog.log('stock query="$text" → ${quote == null ? "NO QUOTE" : "${quote.symbol} ${quote.price}"}');
+      if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      if (quote != null) {
+        ref.read(chatControllerProvider.notifier).addUserMessage(text);
+        final card =
+            '${StockChartCard.startMarker}${jsonEncode(quote.toJson())}${StockChartCard.endMarker}';
+        ref
+            .read(chatControllerProvider.notifier)
+            .replyWithText('$card\n\n${quote.summary}');
+        _scrollToBottom();
+        return;
+      }
+    }
+
+    // URL fetch: if message contains a bare URL, fetch and inject its content
+    String enriched = text;
+    final url = UrlFetchService.extractUrl(text);
+    if (url != null) {
+      _showSnack('Fetching page content…');
+      final pageText = await _urlFetch.fetch(url);
+      if (pageText != null) {
+        enriched = '[Page content from $url]\n$pageText\n\nUser: $text';
+      }
+    }
+
     // Enrich with Vision analysis / PDF text
-    String enriched = await _enrichWithMedia(text, attachments);
+    enriched = await _enrichWithMedia(enriched, attachments);
 
     // Optionally also add web search context
     if (_webSearchEnabled) {
+      _showSnack('Searching the web…');
       final webCtx = await _webSearch.search(text);
-      if (webCtx != null) enriched = '$webCtx\n\n$enriched';
+      if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      if (webCtx != null) {
+        enriched = '$webCtx\n\n$enriched';
+      } else {
+        _showSnack('No web results found');
+      }
     }
 
     final displayText = enriched == text ? null : text;
     ref
         .read(chatControllerProvider.notifier)
         .send(enriched, displayText: displayText, attachments: attachments);
+  }
+
+  static bool _isImageEditRequest(String text) {
+    final lower = text.toLowerCase();
+    const editKeywords = [
+      'make', 'change', 'turn', 'remove', 'replace', 'swap',
+      'edit', 'modify', 'adjust', 'convert', 'transform',
+      'white', 'black', 'red', 'blue', 'green', 'yellow',
+      'background', 'color', 'colour', 'shirt', 'hair', 'sky',
+    ];
+    return editKeywords.any(lower.contains);
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  /// Shows the downloaded models so the user can re-answer the last prompt
+  /// with a different model.
+  Future<void> _showRegenerateModelChooser() async {
+    final storage = ref.read(modelStorageProvider);
+    final active = ref.read(activeModelProvider);
+    final downloaded = <ModelVariant>[];
+    for (final m in kModelCatalogue) {
+      if (await storage.isDownloaded(m.id)) downloaded.add(m);
+    }
+    if (!mounted) return;
+    if (downloaded.isEmpty) {
+      _showSnack('No downloaded models. Install one from the model picker.');
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceSidebar,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Re-answer with…',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ),
+            for (final m in downloaded)
+              ListTile(
+                leading: Icon(_iconData(m.family),
+                    color: _iconColor(m.family), size: 22),
+                title: Text(m.displayName,
+                    style: const TextStyle(color: Colors.white)),
+                subtitle: Text(
+                    '${m.parametersBillions}B · ${m.quant.label}',
+                    style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+                trailing: m.id == active?.id
+                    ? const Icon(Icons.check, color: AppColors.accentGreen, size: 18)
+                    : null,
+                onTap: () {
+                  Navigator.of(context).pop();
+                  ref.read(chatControllerProvider.notifier).regenerateWithModel(m);
+                  _scrollToBottom();
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _iconColor(ModelFamily f) => switch (f) {
+        ModelFamily.llama => AppColors.modelWhite,
+        ModelFamily.phi => AppColors.modelBlue,
+        ModelFamily.gemma => AppColors.modelGreen,
+        ModelFamily.mistral => AppColors.modelPurple,
+        ModelFamily.qwen => AppColors.modelPurple,
+        ModelFamily.deepseek => AppColors.modelBlue,
+        ModelFamily.smollm => AppColors.modelSurface,
+      };
+
+  IconData _iconData(ModelFamily f) => switch (f) {
+        ModelFamily.llama => Icons.memory,
+        ModelFamily.phi => Icons.hexagon_outlined,
+        ModelFamily.gemma => Icons.diamond_outlined,
+        ModelFamily.mistral => Icons.bolt,
+        ModelFamily.qwen => Icons.waves,
+        ModelFamily.deepseek => Icons.psychology_outlined,
+        ModelFamily.smollm => Icons.bubble_chart_outlined,
+      };
+
+  Future<void> _generateImg2Img(Uint8List sourceBytes, String prompt) async {
+    await _ensureSdModelLoaded();
+    final sdService = ref.read(imageGenProvider);
+    _showSnack('Generating edited image…');
+    try {
+      final result = await sdService.editImage(
+        imageBytes: sourceBytes,
+        prompt: prompt,
+        strength: 0.7,
+      );
+      if (result != null && mounted) {
+        ref.read(chatControllerProvider.notifier).send(
+          prompt,
+          attachments: [
+            ChatAttachment(
+              id: DateTime.now().microsecondsSinceEpoch.toString(),
+              type: AttachmentType.image,
+              name: 'edited_image.png',
+              thumbnailBytes: result,
+            ),
+          ],
+        );
+      }
+    } catch (e) {
+      _showSnack('Image edit failed: $e');
+    }
   }
 
   Future<void> _sendWithWebSearch(String text,
@@ -280,7 +480,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (desc != null) extra.writeln(desc);
       }
       if (att.isFile && att.generationPrompt != null) {
-        extra.writeln('[Document: ${att.name}]\n${att.generationPrompt}');
+        // For long documents, retrieve only the passages relevant to the
+        // question instead of dumping the whole thing into the context window.
+        final docText = att.generationPrompt!;
+        final relevant = text.trim().isEmpty
+            ? docText
+            : _docRetrieval.relevantContext(docText, text);
+        extra.writeln('[Document: ${att.name}]\n$relevant');
       }
     }
 
@@ -594,7 +800,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final ext = (f.extension ?? '').toLowerCase();
 
       const textExts = {'pdf', 'txt', 'csv', 'tsv', 'md', 'json', 'rtf', 'docx', 'doc', 'html', 'htm'};
+      const audioExts = {'m4a', 'mp3', 'wav', 'caf', 'aac', 'aif', 'aiff'};
       String? extractedText;
+
       if (textExts.contains(ext) && f.path != null) {
         try {
           extractedText = ext == 'pdf'
@@ -612,6 +820,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _inputCtrl.text = '[${ext.toUpperCase()}: ${f.name}]\n';
           }
         } catch (_) {}
+      } else if (audioExts.contains(ext) && f.path != null) {
+        // Transcribe audio file
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Transcribing audio…'),
+            duration: Duration(seconds: 30),
+          ));
+        }
+        try {
+          final transcript = await _media.transcribeAudio(f.path!);
+          if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          if (transcript != null) {
+            HapticFeedback.lightImpact();
+            extractedText = transcript;
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('Audio transcribed (${transcript.split(' ').length} words)'),
+                duration: const Duration(seconds: 2),
+              ));
+            }
+            _inputCtrl.text = transcript;
+            _send();
+            return;
+          }
+        } catch (_) {
+          if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        }
       }
 
       setState(() {
@@ -621,7 +856,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           name: f.name,
           localPath: f.path,
           sizeBytes: f.size,
-          mimeType: ext == 'pdf' ? 'application/pdf' : 'application/$ext',
+          mimeType: audioExts.contains(ext) ? 'audio/$ext' : (ext == 'pdf' ? 'application/pdf' : 'application/$ext'),
           generationPrompt: extractedText,
         ));
       });
@@ -702,6 +937,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         '/image $prompt (×4 variations)');
     _scrollToBottom();
 
+    await _ensureSdModelLoaded();
     final gen = ref.read(imageGenProvider);
     final results = <Uint8List>[];
 
@@ -872,16 +1108,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  /// Ensures a downloaded Core ML image model is loaded into memory. If the
+  /// model is downloaded but not yet loaded, it is loaded automatically so the
+  /// user never has to do it manually. Returns true if a real model is ready.
+  Future<bool> _ensureSdModelLoaded() async {
+    final status = ref.read(sdModelProvider);
+    if (status.state == SDModelState.loaded) return true;
+    if (status.state == SDModelState.ready && status.loadedModelId != null) {
+      SDModel? model;
+      for (final m in kSDModelCatalogue) {
+        if (m.id == status.loadedModelId) {
+          model = m;
+          break;
+        }
+      }
+      if (model == null) return false;
+      if (mounted) _showSnack('Loading image model…');
+      await ref.read(sdModelProvider.notifier).loadModel(model);
+      return ref.read(sdModelProvider).state == SDModelState.loaded;
+    }
+    return false;
+  }
+
   Future<void> _generateImage({
     required String prompt,
     required String userText,
     bool isVideo = false,
   }) async {
-    final isReal = ref.read(imageGenIsRealProvider);
-
     // Show exactly what the user typed
     ref.read(chatControllerProvider.notifier).addUserMessage(userText);
     _scrollToBottom();
+
+    // Auto-load a downloaded Core ML model so generation "just works".
+    final isReal = await _ensureSdModelLoaded();
 
     // If no real SD model installed, show a one-time nudge but still generate
     if (!isReal && mounted) {
@@ -1126,6 +1385,99 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         (starterDl.status == DownloadStatus.downloading ||
          llamaStatus == LlamaStatus.loading && activeModel == null);
 
+    final isIPad = MediaQuery.sizeOf(context).shortestSide >= 600;
+
+    final chatBody = Column(
+      children: [
+        const _PrivacyBar(),
+        const _ModelStatusBanner(),
+        if (error != null) _ErrorBar(error: error),
+        Expanded(
+          child: messages.isEmpty && !modelLoaded
+              ? isAutoDownloading
+                  ? _AutoDownloadView(
+                      progress: starterDl?.progress ?? 0,
+                      isLoading: llamaStatus == LlamaStatus.loading,
+                      receivedMb: (starterDl?.receivedBytes ?? 0) / 1e6,
+                      totalMb: (starterDl?.totalBytes ?? 1) / 1e6,
+                    )
+                  : _WelcomeView(onModelTap: () => showModelPicker(context))
+              : _MessageList(
+                  messages: messages,
+                  activeModel: activeModel,
+                  scrollCtrl: _scrollCtrl,
+                  genStatus: genStatus,
+                  genProgress: genProgress,
+                  onEditMessage: _showEditDialog,
+                  onRegenerateWithModel: _showRegenerateModelChooser,
+                ),
+        ),
+        if (ref.watch(contextUsageProvider) > 0.85)
+          _ContextWarningBar(usage: ref.watch(contextUsageProvider)),
+        if (_commandSuggestions.isNotEmpty)
+          _CommandSuggestionBar(
+            suggestions: _commandSuggestions,
+            onSelect: _selectCommand,
+          ),
+        _ChatInput(
+          controller: _inputCtrl,
+          isGenerating: isGenerating,
+          modelLoaded: modelLoaded,
+          pendingAttachments: _pendingAttachments,
+          onSend: _send,
+          onStop: _stop,
+          onAddTap: _showAttachmentPicker,
+          webSearchEnabled: _webSearchEnabled,
+          onToggleWebSearch: () =>
+              setState(() => _webSearchEnabled = !_webSearchEnabled),
+          isListening: _isListening,
+          onToggleVoice: _toggleVoice,
+          onRemoveAttachment: (i) =>
+              setState(() => _pendingAttachments.removeAt(i)),
+          onRemoveBackgroundTap: _pendingAttachments.any((a) => a.isImage)
+              ? () {
+                  final idx = _pendingAttachments.indexWhere((a) => a.isImage);
+                  if (idx >= 0) _removeBackground(idx);
+                }
+              : null,
+        ),
+      ],
+    );
+
+    if (isIPad) {
+      // iPad: side-by-side history panel + chat
+      return Scaffold(
+        backgroundColor: AppColors.surfaceBase,
+        appBar: _AppBar(
+          activeModel: activeModel,
+          llamaStatus: llamaStatus,
+          showMenuButton: false,
+          onModelTap: () => showModelPicker(context),
+          onSettingsTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SettingsScreen()),
+          ),
+          onVoiceModeTap: () => VoiceModeScreen.open(context),
+          onNewChat: () =>
+              ref.read(chatControllerProvider.notifier).newChat(),
+        ),
+        body: Row(
+          children: [
+            SizedBox(
+              width: 280,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: AppColors.surfaceSidebar,
+                  border: Border(right: BorderSide(color: AppColors.borderDefault)),
+                ),
+                child: const HistoryDrawer(embedded: true),
+              ),
+            ),
+            Expanded(child: chatBody),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.surfaceBase,
       drawer: const HistoryDrawer(),
@@ -1137,59 +1489,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           MaterialPageRoute(builder: (_) => const SettingsScreen()),
         ),
         onVoiceModeTap: () => VoiceModeScreen.open(context),
+        onNewChat: () =>
+            ref.read(chatControllerProvider.notifier).newChat(),
       ),
-      body: Column(
-        children: [
-          const _PrivacyBar(),
-          if (error != null) _ErrorBar(error: error),
-          Expanded(
-            child: messages.isEmpty && !modelLoaded
-                ? isAutoDownloading
-                    ? _AutoDownloadView(
-                        progress: starterDl?.progress ?? 0,
-                        isLoading: llamaStatus == LlamaStatus.loading,
-                        receivedMb: (starterDl?.receivedBytes ?? 0) / 1e6,
-                        totalMb: (starterDl?.totalBytes ?? 1) / 1e6,
-                      )
-                    : _WelcomeView(onModelTap: () => showModelPicker(context))
-                : _MessageList(
-                    messages: messages,
-                    activeModel: activeModel,
-                    scrollCtrl: _scrollCtrl,
-                    genStatus: genStatus,
-                    genProgress: genProgress,
-                    onEditMessage: _showEditDialog,
-                  ),
-          ),
-          if (_commandSuggestions.isNotEmpty)
-            _CommandSuggestionBar(
-              suggestions: _commandSuggestions,
-              onSelect: _selectCommand,
-            ),
-          _ChatInput(
-            controller: _inputCtrl,
-            isGenerating: isGenerating,
-            modelLoaded: modelLoaded,
-            pendingAttachments: _pendingAttachments,
-            onSend: _send,
-            onStop: _stop,
-            onAddTap: _showAttachmentPicker,
-            webSearchEnabled: _webSearchEnabled,
-            onToggleWebSearch: () =>
-                setState(() => _webSearchEnabled = !_webSearchEnabled),
-            isListening: _isListening,
-            onToggleVoice: _toggleVoice,
-            onRemoveAttachment: (i) =>
-                setState(() => _pendingAttachments.removeAt(i)),
-            onRemoveBackgroundTap: _pendingAttachments.any((a) => a.isImage)
-                ? () {
-                    final idx = _pendingAttachments.indexWhere((a) => a.isImage);
-                    if (idx >= 0) _removeBackground(idx);
-                  }
-                : null,
-          ),
-        ],
-      ),
+      body: chatBody,
     );
   }
 }
@@ -1205,6 +1508,8 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onModelTap,
     required this.onSettingsTap,
     required this.onVoiceModeTap,
+    required this.onNewChat,
+    this.showMenuButton = true,
   });
 
   final ModelVariant? activeModel;
@@ -1212,6 +1517,8 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onModelTap;
   final VoidCallback onSettingsTap;
   final VoidCallback onVoiceModeTap;
+  final VoidCallback onNewChat;
+  final bool showMenuButton;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -1219,13 +1526,16 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      leading: Builder(
-        builder: (context) => IconButton(
-          icon: const Icon(Icons.menu, size: 20),
-          onPressed: () => Scaffold.of(context).openDrawer(),
-          tooltip: 'History',
-        ),
-      ),
+      titleSpacing: 0,
+      leading: showMenuButton
+          ? Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.menu, size: 20),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+                tooltip: 'History',
+              ),
+            )
+          : null,
       title: GestureDetector(
         onTap: onModelTap,
         behavior: HitTestBehavior.opaque,
@@ -1245,9 +1555,13 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
                 size: 24,
               ),
             const SizedBox(width: 6),
-            Text(
-              activeModel?.displayName ?? 'Choose model',
-              style: AppTypography.navTitle,
+            Flexible(
+              child: Text(
+                activeModel?.displayName ?? 'Choose model',
+                style: AppTypography.navTitle,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             ),
             const SizedBox(width: 3),
             const Icon(Icons.expand_more, size: 16, color: AppColors.textMuted),
@@ -1263,10 +1577,7 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
         IconButton(
           icon: const Icon(Icons.edit_outlined, size: 20),
           tooltip: 'New chat',
-          onPressed: () {
-            final ref = ProviderScope.containerOf(context);
-            ref.read(chatControllerProvider.notifier).newChat();
-          },
+          onPressed: onNewChat,
         ),
         IconButton(
           icon: const Icon(Icons.settings_outlined, size: 20),
@@ -1347,6 +1658,121 @@ class _ErrorBar extends ConsumerWidget {
             onTap: () =>
                 ref.read(chatControllerProvider.notifier).clearError(),
             child: const Icon(Icons.close, size: 16, color: Color(0xFFFCA5A5)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Thin banner shown while a model is downloading or loading into memory, so
+/// the user always knows why a reply is delayed.
+class _ModelStatusBanner extends ConsumerWidget {
+  const _ModelStatusBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final downloads = ref.watch(downloadStatesProvider);
+    final llamaStatus = ref.watch(llamaStatusProvider);
+
+    // Find an in-progress download, if any.
+    MapEntry<String, DownloadState>? active;
+    for (final e in downloads.entries) {
+      if (e.value.status == DownloadStatus.downloading) {
+        active = e;
+        break;
+      }
+    }
+
+    String? label;
+    double? progress;
+    if (active != null) {
+      String? modelName;
+      for (final m in kModelCatalogue) {
+        if (m.id == active.key) { modelName = m.displayName; break; }
+      }
+      final pct = (active.value.progress * 100).toStringAsFixed(0);
+      label = 'Downloading ${modelName ?? 'model'}…  $pct%';
+      progress = active.value.progress;
+    } else if (llamaStatus == LlamaStatus.loading) {
+      label = 'Loading model into memory…';
+    }
+
+    if (label == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 4, 14, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceOverlay,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.borderDefault),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation(AppColors.accentGreen),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label,
+                style: AppTypography.userMeta
+                    .copyWith(color: AppColors.textMuted)),
+          ),
+          if (progress != null && progress > 0)
+            SizedBox(
+              width: 60,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 3,
+                  backgroundColor: AppColors.surfaceActive,
+                  valueColor:
+                      const AlwaysStoppedAnimation(AppColors.accentGreen),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContextWarningBar extends StatelessWidget {
+  const _ContextWarningBar({required this.usage});
+  final double usage;
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (usage * 100).clamp(0, 999).toStringAsFixed(0);
+    final over = usage >= 1.0;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 4, 14, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF3A2E0B),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF8A6D1B)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.history_toggle_off,
+              size: 15, color: Color(0xFFFCD34D)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              over
+                  ? 'Conversation exceeds the model\'s memory ($pct%). Oldest messages are being dropped — start a new chat for best results.'
+                  : 'Approaching the model\'s memory limit ($pct%). Older messages may soon be forgotten.',
+              style: AppTypography.userMeta
+                  .copyWith(color: const Color(0xFFFCD34D)),
+            ),
           ),
         ],
       ),
@@ -1523,6 +1949,7 @@ class _MessageList extends ConsumerWidget {
     required this.genStatus,
     required this.genProgress,
     required this.onEditMessage,
+    required this.onRegenerateWithModel,
   });
 
   final List<ChatMessage> messages;
@@ -1531,6 +1958,7 @@ class _MessageList extends ConsumerWidget {
   final ImageGenStatus genStatus;
   final double genProgress;
   final void Function(String id, String content) onEditMessage;
+  final VoidCallback onRegenerateWithModel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1549,6 +1977,11 @@ class _MessageList extends ConsumerWidget {
             child: _ImageGenProgressRow(
               progress: genProgress,
               modelIcon: _modelIcon(activeModel, size: 28),
+              onCancel: () {
+                ref.read(imageGenProvider).cancel();
+                ref.read(imageGenStatusProvider.notifier).state =
+                    ImageGenStatus.idle;
+              },
             ),
           );
         }
@@ -1569,6 +2002,23 @@ class _MessageList extends ConsumerWidget {
                       text: msg.content,
                       modelIcon: _modelIcon(activeModel, size: 28),
                       attachments: msg.attachments,
+                      tokensPerSec: msg.tokensPerSec,
+                      elapsedMs: msg.elapsedMs,
+                      rating: msg.rating,
+                      onRate: (r) {
+                        ref
+                            .read(chatControllerProvider.notifier)
+                            .rateMessage(msg.id, r);
+                        if (r == -1) {
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(const SnackBar(
+                              content: Text(
+                                  'Thanks — I\'ll remember this and try to do better.'),
+                              duration: Duration(seconds: 2),
+                            ));
+                        }
+                      },
                       onRegenerate: i > 0 && messages[i - 1].isUser
                           ? () {
                               final prev = messages[i - 1];
@@ -1577,6 +2027,22 @@ class _MessageList extends ConsumerWidget {
                                   .editAndRegenerate(prev.id, prev.content);
                             }
                           : null,
+                      // Only offer "try another model" on the last message.
+                      onRegenerateWithModel:
+                          i == messages.length - 1 && i > 0 && messages[i - 1].isUser
+                              ? onRegenerateWithModel
+                              : null,
+                      onBranch: () {
+                        ref
+                            .read(chatControllerProvider.notifier)
+                            .branchAt(i);
+                        ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(const SnackBar(
+                            content: Text('Branched into a new chat'),
+                            duration: Duration(seconds: 2),
+                          ));
+                      },
                     ),
         );
       },
@@ -1616,9 +2082,11 @@ class _ImageGenProgressRow extends StatelessWidget {
   const _ImageGenProgressRow({
     required this.progress,
     required this.modelIcon,
+    this.onCancel,
   });
   final double progress;
   final Widget modelIcon;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -1657,6 +2125,22 @@ class _ImageGenProgressRow extends StatelessWidget {
                       'Generating image${pct > 0 ? '  $pct%' : '…'}',
                       style: AppTypography.modelDesc,
                     ),
+                    const Spacer(),
+                    if (onCancel != null)
+                      GestureDetector(
+                        onTap: onCancel,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.borderDefault),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text('Stop',
+                              style: AppTypography.userMeta
+                                  .copyWith(color: AppColors.textMuted)),
+                        ),
+                      ),
                   ],
                 ),
                 if (progress > 0) ...[

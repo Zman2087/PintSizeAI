@@ -6,6 +6,7 @@ import 'package:gal/gal.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import '../features/attachments/attachment.dart';
+import '../features/chat/chat_export_service.dart';
 import '../theme/theme.dart';
 import '../widgets/message_content.dart';
 
@@ -244,14 +245,37 @@ class AssistantMessage extends StatelessWidget {
     required this.modelIcon,
     this.attachments = const [],
     this.onRegenerate,
+    this.onRegenerateWithModel,
+    this.onBranch,
+    this.tokensPerSec,
+    this.elapsedMs,
+    this.rating,
+    this.onRate,
   });
   final String text;
   final Widget modelIcon;
   final List<ChatAttachment> attachments;
   final VoidCallback? onRegenerate;
+  final VoidCallback? onRegenerateWithModel;
+  final VoidCallback? onBranch;
+  final double? tokensPerSec;
+  final int? elapsedMs;
+  final int? rating;
+  final void Function(int rating)? onRate;
+
+  String? get _statsLabel {
+    if (tokensPerSec == null || tokensPerSec! <= 0) return null;
+    final tps = tokensPerSec!.toStringAsFixed(1);
+    if (elapsedMs != null) {
+      final secs = (elapsedMs! / 1000).toStringAsFixed(1);
+      return '$tps tok/s · ${secs}s';
+    }
+    return '$tps tok/s';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final stats = _statsLabel;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -274,7 +298,21 @@ class AssistantMessage extends StatelessWidget {
                 MessageContent(text, isStreaming: false),
                 const SizedBox(height: 8),
               ],
-              _ActionRow(text: text, onRegenerate: onRegenerate),
+              _ActionRow(
+                text: text,
+                onRegenerate: onRegenerate,
+                onRegenerateWithModel: onRegenerateWithModel,
+                onBranch: onBranch,
+                rating: rating,
+                onRate: onRate,
+              ),
+              if (stats != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, left: 2),
+                  child: Text(stats,
+                      style: AppTypography.userMeta
+                          .copyWith(color: AppColors.textDim)),
+                ),
             ],
           ),
         ),
@@ -284,9 +322,20 @@ class AssistantMessage extends StatelessWidget {
 }
 
 class _ActionRow extends StatefulWidget {
-  const _ActionRow({required this.text, this.onRegenerate});
+  const _ActionRow({
+    required this.text,
+    this.onRegenerate,
+    this.onRegenerateWithModel,
+    this.onBranch,
+    this.rating,
+    this.onRate,
+  });
   final String text;
   final VoidCallback? onRegenerate;
+  final VoidCallback? onRegenerateWithModel;
+  final VoidCallback? onBranch;
+  final int? rating;
+  final void Function(int rating)? onRate;
 
   @override
   State<_ActionRow> createState() => _ActionRowState();
@@ -326,6 +375,48 @@ class _ActionRowState extends State<_ActionRow> {
               widget.onRegenerate!();
             },
           ),
+        if (widget.onRegenerateWithModel != null)
+          _ActionBtn(
+            icon: Icons.swap_horiz,
+            tooltip: 'Try another model',
+            onTap: () {
+              HapticFeedback.lightImpact();
+              widget.onRegenerateWithModel!();
+            },
+          ),
+        if (widget.onBranch != null)
+          _ActionBtn(
+            icon: Icons.call_split,
+            tooltip: 'Branch here',
+            onTap: () {
+              HapticFeedback.lightImpact();
+              widget.onBranch!();
+            },
+          ),
+        if (widget.onRate != null) ...[
+          _ActionBtn(
+            icon: widget.rating == 1
+                ? Icons.thumb_up
+                : Icons.thumb_up_outlined,
+            tooltip: 'Good response',
+            color: widget.rating == 1 ? AppColors.accentGreen : null,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              widget.onRate!(widget.rating == 1 ? 0 : 1);
+            },
+          ),
+          _ActionBtn(
+            icon: widget.rating == -1
+                ? Icons.thumb_down
+                : Icons.thumb_down_outlined,
+            tooltip: 'Bad response',
+            color: widget.rating == -1 ? const Color(0xFFEF4444) : null,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              widget.onRate!(widget.rating == -1 ? 0 : -1);
+            },
+          ),
+        ],
       ],
     );
   }
@@ -333,10 +424,11 @@ class _ActionRowState extends State<_ActionRow> {
 
 class _ActionBtn extends StatelessWidget {
   const _ActionBtn(
-      {required this.icon, required this.tooltip, required this.onTap});
+      {required this.icon, required this.tooltip, required this.onTap, this.color});
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -348,7 +440,7 @@ class _ActionBtn extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(4),
-          child: Icon(icon, size: 16, color: AppColors.textDim),
+          child: Icon(icon, size: 16, color: color ?? AppColors.textDim),
         ),
       ),
     );
@@ -1145,6 +1237,17 @@ class _ImageThumb extends StatelessWidget {
               onTap: () {
                 Navigator.pop(context);
                 _saveToPhotos(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.ios_share, color: Colors.white),
+              title: const Text('Share',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                if (bytes != null) {
+                  ChatExportService().shareImage(bytes!);
+                }
               },
             ),
             const SizedBox(height: 8),

@@ -32,6 +32,16 @@ abstract class LocalImageGen {
     int steps = 20,
   });
 
+  /// img2img: edit an existing image given a text instruction.
+  /// [strength] 0–1 controls how much the source image is preserved
+  /// (0 = no change, 1 = ignore source entirely).
+  Future<Uint8List?> editImage({
+    required Uint8List imageBytes,
+    required String prompt,
+    double strength = 0.7,
+    int steps = 20,
+  });
+
   void cancel();
   void dispose();
 }
@@ -182,6 +192,36 @@ class LocalImageGenMock implements LocalImageGen {
 
   static String _clip(String s, int max) =>
       s.length > max ? '${s.substring(0, max)}…' : s;
+
+  @override
+  @override
+  Future<Uint8List?> editImage({
+    required Uint8List imageBytes,
+    required String prompt,
+    double strength = 0.7,
+    int steps = 20,
+  }) async {
+    // Mock: apply a simple color-shift to simulate an edit
+    final source = img.decodeImage(imageBytes);
+    if (source == null) return null;
+    final rng = Random(prompt.hashCode.abs());
+    final tintR = rng.nextInt(80) - 40;
+    final tintG = rng.nextInt(80) - 40;
+    final tintB = rng.nextInt(80) - 40;
+    for (var y = 0; y < source.height; y++) {
+      for (var x = 0; x < source.width; x++) {
+        final px = source.getPixel(x, y);
+        source.setPixelRgba(
+          x, y,
+          (px.r.toInt() + (tintR * strength).round()).clamp(0, 255),
+          (px.g.toInt() + (tintG * strength).round()).clamp(0, 255),
+          (px.b.toInt() + (tintB * strength).round()).clamp(0, 255),
+          px.a.toInt(),
+        );
+      }
+    }
+    return Uint8List.fromList(img.encodePng(source));
+  }
 
   @override
   void cancel() => _cancelled = true;

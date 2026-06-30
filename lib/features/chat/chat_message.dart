@@ -10,6 +10,8 @@ class ChatMessage {
     this.modelId,
     this.isStreaming = false,
     this.attachments = const [],
+    this.tokensPerSec,
+    this.elapsedMs,
   });
 
   final String id;
@@ -20,12 +22,23 @@ class ChatMessage {
   bool isStreaming;
   final List<ChatAttachment> attachments;
 
+  /// Generation speed for assistant messages (tokens per second).
+  double? tokensPerSec;
+
+  /// Wall-clock generation time in milliseconds for assistant messages.
+  int? elapsedMs;
+
+  /// User feedback on an assistant message: 1 = liked, -1 = disliked, null = none.
+  int? rating;
+
   bool get hasAttachments => attachments.isNotEmpty;
 
   ChatMessage copyWith({
     String? content,
     bool? isStreaming,
     List<ChatAttachment>? attachments,
+    double? tokensPerSec,
+    int? elapsedMs,
   }) =>
       ChatMessage(
         id: id,
@@ -35,6 +48,8 @@ class ChatMessage {
         modelId: modelId,
         isStreaming: isStreaming ?? this.isStreaming,
         attachments: attachments ?? this.attachments,
+        tokensPerSec: tokensPerSec ?? this.tokensPerSec,
+        elapsedMs: elapsedMs ?? this.elapsedMs,
       );
 
   bool get isUser => role == MessageRole.user;
@@ -53,6 +68,9 @@ class ChatSession {
     required this.createdAt,
     this.title,
     this.modelId,
+    this.branchedFromSessionId,
+    this.branchedAtMessageIndex,
+    this.pinned = false,
     List<ChatMessage>? messages,
   }) : messages = messages ?? [];
 
@@ -60,7 +78,14 @@ class ChatSession {
   final DateTime createdAt;
   String? title;
   String? modelId;
+  bool pinned;
   List<ChatMessage> messages;
+
+  /// If this session was forked from another, records the parent session id.
+  final String? branchedFromSessionId;
+
+  /// The message index in the parent session where this branch starts.
+  final int? branchedAtMessageIndex;
 
   String get displayTitle {
     if (title != null) return title!;

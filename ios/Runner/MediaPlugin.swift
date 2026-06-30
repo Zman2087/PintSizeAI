@@ -3,6 +3,8 @@ import UIKit
 import Vision
 import PDFKit
 import CoreImage
+import Speech
+import AVFoundation
 
 /// Flutter plugin handling:
 ///   analyzeImage   → Vision scene/OCR/face analysis → text description
@@ -63,7 +65,6 @@ final class MediaPlugin: NSObject {
             extractPDF(path: path, result: result)
 
         case "extractText":
-            // Generic text extraction for .txt, .csv, .rtf, .docx, .doc
             guard let args = call.arguments as? [String: Any],
                   let path = args["path"] as? String else {
                 result(FlutterError(code: "BAD_ARGS",
@@ -72,6 +73,16 @@ final class MediaPlugin: NSObject {
                 return
             }
             extractText(path: path, result: result)
+
+        case "transcribeAudio":
+            guard let args = call.arguments as? [String: Any],
+                  let path = args["path"] as? String else {
+                result(FlutterError(code: "BAD_ARGS",
+                                    message: "transcribeAudio requires {path: String}",
+                                    details: nil))
+                return
+            }
+            transcribeAudio(path: path, result: result)
 
         default:
             result(FlutterMethodNotImplemented)
@@ -295,6 +306,55 @@ final class MediaPlugin: NSObject {
                                         details: nil))
                 } else {
                     result(trimmed)
+                }
+            }
+        }
+    }
+
+    // ── Audio transcription ───────────────────────────────────────────────────
+
+    private func transcribeAudio(path: String, result: @escaping FlutterResult) {
+        SFSpeechRecognizer.requestAuthorization { status in
+            guard status == .authorized else {
+                DispatchQueue.main.async {
+                    result(FlutterError(code: "PERMISSION_DENIED",
+                                        message: "Speech recognition permission denied",
+                                        details: nil))
+                }
+                return
+            }
+
+            guard let recognizer = SFSpeechRecognizer(locale: .current),
+                  recognizer.isAvailable else {
+                DispatchQueue.main.async {
+                    result(FlutterError(code: "UNAVAILABLE",
+                                        message: "Speech recognizer not available",
+                                        details: nil))
+                }
+                return
+            }
+
+            let url = URL(fileURLWithPath: path)
+            let request = SFSpeechURLRecognitionRequest(url: url)
+            request.shouldReportPartialResults = false
+            request.requiresOnDeviceRecognition = false
+
+            recognizer.recognitionTask(with: request) { response, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        result(FlutterError(code: "TRANSCRIPTION_ERROR",
+                                            message: error.localizedDescription,
+                                            details: nil))
+                        return
+                    }
+                    guard let text = response?.bestTranscription.formattedString,
+                          !text.isEmpty else {
+                        result(FlutterError(code: "NO_SPEECH",
+                                            message: "No speech detected in audio file",
+                                            details: nil))
+                        return
+                    }
+                    result(text)
                 }
             }
         }

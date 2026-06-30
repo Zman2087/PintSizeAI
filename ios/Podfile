@@ -32,6 +32,8 @@ target 'Runner' do
 
   # llama.cpp — compiled from source in ios/llama.cpp/ (run scripts/setup_llama.sh first)
   pod 'llama_cpp', :path => '.'
+  # Multimodal (clip/mtmd) — separate target to avoid object-file name clashes
+  pod 'llama_mtmd', :path => '.'
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do

@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import '../features/chat/chat_controller.dart';
 import '../features/chat/chat_message.dart';
 import '../features/chat/chat_providers.dart';
+import '../features/chat/chat_export_service.dart';
 import '../theme/theme.dart';
 
 class HistoryDrawer extends ConsumerStatefulWidget {
-  const HistoryDrawer({super.key});
+  const HistoryDrawer({super.key, this.embedded = false});
+
+  /// When true, renders without a Drawer wrapper (for iPad split layout).
+  final bool embedded;
 
   @override
   ConsumerState<HistoryDrawer> createState() => _HistoryDrawerState();
@@ -16,101 +19,122 @@ class HistoryDrawer extends ConsumerStatefulWidget {
 
 class _HistoryDrawerState extends ConsumerState<HistoryDrawer> {
   String _query = '';
+  final _exportService = ChatExportService();
 
   @override
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatControllerProvider);
     final allSessions = chatState.sessions;
-    final filtered = _query.isEmpty
-        ? allSessions
+    final matched = _query.isEmpty
+        ? [...allSessions]
         : allSessions.where((s) {
             final q = _query.toLowerCase();
             if (s.displayTitle.toLowerCase().contains(q)) return true;
             return s.messages
                 .any((m) => m.content.toLowerCase().contains(q));
           }).toList();
+    // Pinned sessions float to the top, preserving relative order otherwise.
+    final filtered = [
+      ...matched.where((s) => s.pinned),
+      ...matched.where((s) => !s.pinned),
+    ];
+
+    final isEmbedded = widget.embedded;
+
+    void onSessionTap(String id) {
+      ref.read(chatControllerProvider.notifier).selectSession(id);
+      if (!isEmbedded) Navigator.of(context).pop();
+    }
+
+    final body = SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Header(onNewChat: () {
+            ref.read(chatControllerProvider.notifier).newChat();
+            if (!isEmbedded) Navigator.of(context).pop();
+          }),
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: TextField(
+              onChanged: (v) => setState(() => _query = v),
+              style: AppTypography.sidebarTitle,
+              decoration: InputDecoration(
+                hintText: 'Search conversations…',
+                hintStyle: AppTypography.sidebarSubtitle,
+                prefixIcon: const Icon(Icons.search,
+                    size: 16, color: AppColors.textDim),
+                suffixIcon: _query.isNotEmpty
+                    ? GestureDetector(
+                        onTap: () => setState(() => _query = ''),
+                        child: const Icon(Icons.close,
+                            size: 14, color: AppColors.textDim),
+                      )
+                    : null,
+                filled: true,
+                fillColor: AppColors.surfaceOverlay,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 8),
+                isDense: true,
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          if (filtered.isEmpty)
+            Expanded(
+              child: Center(
+                child: Text(
+                  _query.isEmpty ? 'No chats yet' : 'No results',
+                  style: AppTypography.sidebarSubtitle,
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.only(top: 8),
+                itemCount: filtered.length,
+                itemBuilder: (context, i) {
+                  final session = filtered[i];
+                  return _SessionTile(
+                    title: session.displayTitle,
+                    isActive: session.id == chatState.activeSessionId,
+                    isBranch: session.branchedFromSessionId != null,
+                    isPinned: session.pinned,
+                    onTap: () => onSessionTap(session.id),
+                    onDelete: () => ref
+                        .read(chatControllerProvider.notifier)
+                        .deleteSession(session.id),
+                    onExport: () => _export(session.messages,
+                        session.displayTitle),
+                    onExportPdf: () => _exportPdf(session.messages,
+                        session.displayTitle),
+                    onPin: () => ref
+                        .read(chatControllerProvider.notifier)
+                        .togglePin(session.id),
+                    onRename: () => _showRenameDialog(
+                        session.id, session.displayTitle),
+                  );
+                },
+              ),
+            ),
+          const Divider(height: 1),
+          const _Footer(),
+        ],
+      ),
+    );
+
+    if (isEmbedded) return body;
 
     return Drawer(
       width: 300,
       backgroundColor: AppColors.surfaceSidebar,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _Header(onNewChat: () {
-              ref.read(chatControllerProvider.notifier).newChat();
-              Navigator.of(context).pop();
-            }),
-            // Search bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: TextField(
-                onChanged: (v) => setState(() => _query = v),
-                style: AppTypography.sidebarTitle,
-                decoration: InputDecoration(
-                  hintText: 'Search conversations…',
-                  hintStyle: AppTypography.sidebarSubtitle,
-                  prefixIcon: const Icon(Icons.search,
-                      size: 16, color: AppColors.textDim),
-                  suffixIcon: _query.isNotEmpty
-                      ? GestureDetector(
-                          onTap: () => setState(() => _query = ''),
-                          child: const Icon(Icons.close,
-                              size: 14, color: AppColors.textDim),
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: AppColors.surfaceOverlay,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
-                  isDense: true,
-                ),
-              ),
-            ),
-            const Divider(height: 1),
-            if (filtered.isEmpty)
-              Expanded(
-                child: Center(
-                  child: Text(
-                    _query.isEmpty ? 'No chats yet' : 'No results',
-                    style: AppTypography.sidebarSubtitle,
-                  ),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.only(top: 8),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, i) {
-                    final session = filtered[i];
-                    return _SessionTile(
-                      title: session.displayTitle,
-                      isActive: session.id == chatState.activeSessionId,
-                      onTap: () {
-                        ref
-                            .read(chatControllerProvider.notifier)
-                            .selectSession(session.id);
-                        Navigator.of(context).pop();
-                      },
-                      onDelete: () => ref
-                          .read(chatControllerProvider.notifier)
-                          .deleteSession(session.id),
-                      onExport: () => _export(session.messages,
-                          session.displayTitle),
-                    );
-                  },
-                ),
-              ),
-            const Divider(height: 1),
-            const _Footer(),
-          ],
-        ),
-      ),
+      child: body,
     );
   }
 
@@ -123,6 +147,51 @@ class _HistoryDrawerState extends ConsumerState<HistoryDrawer> {
       buf.writeln('**$role:** ${m.content}\n');
     }
     Share.share(buf.toString(), subject: title);
+  }
+
+  void _exportPdf(List<ChatMessage> messages, String title) {
+    _exportService.shareAsPdf(messages, title);
+  }
+
+  void _showRenameDialog(String sessionId, String currentTitle) {
+    final ctrl = TextEditingController(text: currentTitle);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceOverlay,
+        title: const Text('Rename chat', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Chat name',
+            hintStyle: TextStyle(color: AppColors.textDim),
+          ),
+          onSubmitted: (v) {
+            ref.read(chatControllerProvider.notifier).renameSession(sessionId, v);
+            Navigator.of(ctx).pop();
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () {
+              ref
+                  .read(chatControllerProvider.notifier)
+                  .renameSession(sessionId, ctrl.text);
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('Save',
+                style: TextStyle(color: AppColors.accentGreen)),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -166,13 +235,23 @@ class _SessionTile extends StatelessWidget {
     required this.onTap,
     required this.onDelete,
     required this.onExport,
+    required this.onExportPdf,
+    required this.onPin,
+    required this.onRename,
+    this.isBranch = false,
+    this.isPinned = false,
   });
 
   final String title;
   final bool isActive;
+  final bool isBranch;
+  final bool isPinned;
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback onExport;
+  final VoidCallback onExportPdf;
+  final VoidCallback onPin;
+  final VoidCallback onRename;
 
   @override
   Widget build(BuildContext context) {
@@ -191,8 +270,11 @@ class _SessionTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.chat_bubble_outline,
-                  size: 14, color: AppColors.textMuted),
+              Icon(
+                isBranch ? Icons.call_split : Icons.chat_bubble_outline,
+                size: 14,
+                color: isBranch ? const Color(0xFF34D399) : AppColors.textMuted,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(title,
@@ -200,6 +282,11 @@ class _SessionTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1),
               ),
+              if (isPinned)
+                const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(Icons.push_pin, size: 12, color: AppColors.textDim),
+                ),
               if (isActive)
                 GestureDetector(
                   onTap: () => _showOptions(context),
@@ -238,12 +325,41 @@ class _SessionTile extends StatelessWidget {
               ),
             ),
             ListTile(
+              leading: const Icon(Icons.drive_file_rename_outline,
+                  color: AppColors.textMuted),
+              title: Text('Rename', style: AppTypography.sidebarTitle),
+              onTap: () {
+                Navigator.pop(context);
+                onRename();
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                  isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                  color: AppColors.textMuted),
+              title: Text(isPinned ? 'Unpin' : 'Pin to top',
+                  style: AppTypography.sidebarTitle),
+              onTap: () {
+                Navigator.pop(context);
+                onPin();
+              },
+            ),
+            ListTile(
               leading:
                   const Icon(Icons.share_outlined, color: AppColors.textMuted),
-              title: Text('Export / Share', style: AppTypography.sidebarTitle),
+              title: Text('Share as text', style: AppTypography.sidebarTitle),
               onTap: () {
                 Navigator.pop(context);
                 onExport();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined,
+                  color: AppColors.textMuted),
+              title: Text('Export as PDF', style: AppTypography.sidebarTitle),
+              onTap: () {
+                Navigator.pop(context);
+                onExportPdf();
               },
             ),
             ListTile(

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../device_recommender/model_catalogue.dart';
+import '../diagnostics/diag_log.dart';
 import '../llm/llama_runner.dart';
 import '../llm/llm_providers.dart';
 import '../settings/settings_providers.dart';
@@ -15,9 +17,13 @@ import 'model_storage_service.dart';
 /// Triggers once on first launch. If no model is on disk, silently
 /// downloads kStarterModelId (SmolLM2 135M, ~75 MB) and auto-loads it.
 ///
-/// The download progress is visible in [downloadStatesProvider], so the
-/// home screen welcome view shows the progress bar automatically.
+/// Skipped when the guided onboarding hasn't been completed yet — in that case
+/// onboarding handles the (device-appropriate) model download instead, so we
+/// don't waste bandwidth grabbing the tiny starter first.
 final firstLaunchSetupProvider = FutureProvider<void>((ref) async {
+  final settings = ref.read(settingsServiceProvider);
+  if (!await settings.getOnboardingComplete()) return; // onboarding will handle it
+
   final storage = ref.read(modelStorageProvider);
   final downloaded = await storage.downloadedModelIds();
   if (downloaded.isNotEmpty) return; // already has a model
@@ -27,6 +33,19 @@ final firstLaunchSetupProvider = FutureProvider<void>((ref) async {
 
   // Download then auto-load — user sees progress in the home screen
   await actions.loadModel(starter);
+});
+
+/// Whether the user has finished (or can skip) first-run onboarding. Existing
+/// users who already have a model installed are treated as onboarded.
+final onboardingStatusProvider = FutureProvider<bool>((ref) async {
+  final settings = ref.read(settingsServiceProvider);
+  if (await settings.getOnboardingComplete()) return true;
+  final downloaded = await ref.read(modelStorageProvider).downloadedModelIds();
+  if (downloaded.isNotEmpty) {
+    await settings.setOnboardingComplete(true);
+    return true;
+  }
+  return false;
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,6 +144,7 @@ class ModelActions {
   Future<void> loadModel(ModelVariant model) async {
     final storage = _ref.read(modelStorageProvider);
     final isReady = await storage.isDownloaded(model.id);
+    DiagLog.log('loadModel id=${model.id} alreadyDownloaded=$isReady');
 
     if (!isReady) {
       await download(model);
@@ -133,11 +153,29 @@ class ModelActions {
     }
 
     final path = await storage.modelPath(model.id);
+    final sizeBytes = await storage.downloadedSizeBytes(model.id);
+    DiagLog.log('loadModel id=${model.id} fileMB=${(sizeBytes / 1e6).toStringAsFixed(1)} '
+        'expectedMB=${(model.fileSizeBytes / 1e6).toStringAsFixed(1)}');
     final runner = _ref.read(llamaRunnerProvider);
     _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.loading;
 
     try {
       await runner.load(model, path);
+      DiagLog.log('loadModel id=${model.id} NATIVE LOAD OK');
+
+      // Multimodal models need a vision projector (mmproj) loaded too.
+      if (model.isMultimodal && model.mmprojUrl != null) {
+        try {
+          final mmprojPath = await storage.mmprojPath(model.id);
+          if (!await storage.isMmprojDownloaded(model.id)) {
+            await _downloadFile(model.mmprojUrl!, mmprojPath);
+          }
+          await runner.loadProjector(mmprojPath);
+        } catch (_) {
+          // Vision projector failed — model still works for text.
+        }
+      }
+
       _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.ready;
       _ref.read(activeModelProvider.notifier).state = model;
 
@@ -147,9 +185,20 @@ class ModelActions {
       // Signal Siri that a model is ready
       _ref.read(siriServiceProvider).setModelReady(true);
     } catch (e) {
+      DiagLog.log('loadModel id=${model.id} LOAD FAILED: $e');
       _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.error;
       rethrow;
     }
+  }
+
+  /// Downloads a file (e.g. the mmproj projector) directly to [destPath].
+  Future<void> _downloadFile(String url, String destPath) async {
+    final dio = Dio();
+    await dio.download(
+      url,
+      destPath,
+      options: Options(receiveTimeout: const Duration(minutes: 30)),
+    );
   }
 
   Future<void> unloadModel() async {

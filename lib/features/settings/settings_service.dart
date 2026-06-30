@@ -7,6 +7,27 @@ class SettingsService {
   static const _kSystemPrompt = 'custom_system_prompt';
   static const _kMemories = 'persistent_memories_v1';
   static const _kAutoSpeak = 'auto_speak_enabled';
+  static const _kOnboardingComplete = 'onboarding_complete';
+
+  Future<bool> getOnboardingComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kOnboardingComplete) ?? false;
+  }
+
+  Future<bool> getMemoryEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('memory_enabled') ?? true;
+  }
+
+  Future<void> setMemoryEnabled(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('memory_enabled', v);
+  }
+
+  Future<void> setOnboardingComplete(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kOnboardingComplete, v);
+  }
 
   Future<String?> getLastModelId() async {
     final prefs = await SharedPreferences.getInstance();
@@ -31,6 +52,23 @@ class SettingsService {
   Future<void> acceptTos() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kHasAcceptedTos, true);
+  }
+
+  // ── TTS voice ───────────────────────────────────────────────────────────────
+
+  Future<String?> getVoiceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final v = prefs.getString('tts_voice_id');
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
+  Future<void> setVoiceId(String? id) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (id == null || id.isEmpty) {
+      await prefs.remove('tts_voice_id');
+    } else {
+      await prefs.setString('tts_voice_id', id);
+    }
   }
 
   // ── Custom system prompt ────────────────────────────────────────────────────
@@ -75,7 +113,8 @@ class SettingsService {
 
   Future<bool> getAutoSpeak() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_kAutoSpeak) ?? false;
+    // Default ON so the assistant speaks its replies out of the box.
+    return prefs.getBool(_kAutoSpeak) ?? true;
   }
 
   Future<void> setAutoSpeak(bool value) async {

@@ -3,11 +3,14 @@ PODS:
   - gal (1.0.0):
     - Flutter
   - llama_cpp (0.0.1)
+  - llama_mtmd (0.0.1):
+    - llama_cpp
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - gal (from `.symlinks/plugins/gal/ios`)
   - llama_cpp (from `.`)
+  - llama_mtmd (from `.`)
 
 EXTERNAL SOURCES:
   Flutter:
@@ -16,12 +19,15 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/gal/ios"
   llama_cpp:
     :path: "."
+  llama_mtmd:
+    :path: "."
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   gal: 29e711cd17bccb47f839d9b30afe9bc9750950b2
-  llama_cpp: a5b0ad35de3b22a05eda973bde2d067916d844be
+  llama_cpp: 7daf136365104915ca0217e46f79950b2f10744f
+  llama_mtmd: ef93944ae11e773626cb547828c34be7cc1406c8
 
-PODFILE CHECKSUM: 35b2091c516ad70772f6ff022a1b7c73b47ccac1
+PODFILE CHECKSUM: b2e00f393676118bc084fada4cbf7dc42babf378
 
 COCOAPODS: 1.16.2

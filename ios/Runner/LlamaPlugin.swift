@@ -57,6 +57,42 @@ final class LlamaPlugin: NSObject {
                 }
             }
 
+        case "loadProjector":
+            guard let args = call.arguments as? [String: Any],
+                  let path = args["path"] as? String else {
+                result(FlutterError(code: "BAD_ARGS",
+                                    message: "loadProjector requires {path: String}",
+                                    details: nil))
+                return
+            }
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    try self.engine.loadMultimodalProjector(atPath: path)
+                    DispatchQueue.main.async { result(nil) }
+                } catch {
+                    DispatchQueue.main.async {
+                        result(FlutterError(code: "PROJECTOR_FAILED",
+                                            message: error.localizedDescription,
+                                            details: nil))
+                    }
+                }
+            }
+
+        case "hasVision":
+            result(engine.hasVision)
+
+        case "applyChatTemplate":
+            guard let args = call.arguments as? [String: Any],
+                  let messages = args["messages"] as? [[String: String]] else {
+                result(FlutterError(code: "BAD_ARGS",
+                                    message: "applyChatTemplate requires {messages: [...]}",
+                                    details: nil))
+                return
+            }
+            let addAss = args["addAssistant"] as? Bool ?? true
+            let formatted = engine.applyChatTemplate(messages, addAssistant: addAss)
+            result(formatted)
+
         case "unloadModel":
             engine.unload()
             result(nil)
@@ -91,13 +127,9 @@ extension LlamaPlugin: FlutterStreamHandler {
         let maxTokens  = args["maxTokens"]   as? Int   ?? 512
         let temperature = args["temperature"] as? Float ?? 0.7
         let topP        = args["topP"]        as? Float ?? 0.9
+        let imageData = (args["imageBytes"] as? FlutterStandardTypedData)?.data
 
-        engine.generate(
-            withPrompt: prompt,
-            maxTokens:  maxTokens,
-            temperature: temperature,
-            topP:        topP
-        ) { [weak self] token, isDone, error in
+        let onToken = { [weak self] (token: String?, isDone: Bool, error: Error?) in
             // Already dispatched to main thread by LlamaEngine
             guard let sink = self?.eventSink else { return }
 
@@ -118,6 +150,21 @@ extension LlamaPlugin: FlutterStreamHandler {
             if let token = token {
                 sink(token)
             }
+        }
+
+        if let imageData = imageData {
+            engine.generate(withPrompt: prompt,
+                            imageData: imageData,
+                            maxTokens: maxTokens,
+                            temperature: temperature,
+                            topP: topP,
+                            tokenHandler: onToken)
+        } else {
+            engine.generate(withPrompt: prompt,
+                            maxTokens: maxTokens,
+                            temperature: temperature,
+                            topP: topP,
+                            tokenHandler: onToken)
         }
 
         return nil
