@@ -64,23 +64,72 @@ class StockService {
     return triggers.any(lower.contains);
   }
 
+  // Filler words stripped from a question to isolate the company/ticker.
+  static const _fillers = {
+    'what', 'whats', "what's", 'is', 'the', 'a', 'share', 'shares', 'price',
+    'prices', 'stock', 'stocks', 'current', 'currently', 'trading', 'trade',
+    'just', 'list', 'show', 'or', 'me', 'please', 'value', 'worth', 'quote',
+    'for', 'of', 'on', 'at', 'how', 'much', 'does', 'cost', 'today', 'now',
+    'latest', 'give', 'tell', 'to', 'and', 'get', 'find', 'my',
+    'market', 'ticker',
+  };
+
+  /// Strips filler words so only the company name / ticker remains.
+  static String cleanQuery(String query) {
+    final tokens = query
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9\.\s]'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty && !_fillers.contains(t))
+        .toList();
+    return tokens.join(' ').trim();
+  }
+
   /// Resolves a company name or ticker to a Yahoo symbol.
   Future<String?> resolveSymbol(String query) async {
-    // Bare ticker like $AAPL or AAPL
-    final tickerMatch = RegExp(r'\$?([A-Za-z]{1,5})\b').firstMatch(query.trim());
+    final cleaned = cleanQuery(query);
+    if (cleaned.isEmpty) return null;
+
+    // Try the cleaned phrase, then the same with an exchange suffix stripped
+    // (e.g. "ghhf.asx" → "ghhf"), then a bare short ticker.
+    final candidates = <String>[
+      cleaned,
+      cleaned.replaceAll(
+          RegExp(r'\.(asx|ax|us|l|to|nasdaq|nyse|nse|hk)$'), ''),
+    ];
+    final seen = <String>{};
+    for (final c in candidates) {
+      if (c.isEmpty || !seen.add(c)) continue;
+      final sym = await _searchOne(c);
+      if (sym != null) return sym;
+    }
+    // Last resort: a bare short ticker typed directly.
+    if (RegExp(r'^[a-z]{1,5}$').hasMatch(cleaned)) return cleaned.toUpperCase();
+    return null;
+  }
+
+  Future<String?> _searchOne(String q) async {
     try {
       final resp = await _dio.get(
         'https://query1.finance.yahoo.com/v1/finance/search',
-        queryParameters: {'q': query, 'quotesCount': 1, 'newsCount': 0},
+        queryParameters: {'q': q, 'quotesCount': 3, 'newsCount': 0},
       );
       final quotes = (resp.data['quotes'] as List?) ?? [];
-      for (final q in quotes) {
-        final sym = (q as Map)['symbol'] as String?;
+      for (final quote in quotes) {
+        final m = quote as Map;
+        final type = (m['quoteType'] as String?) ?? '';
+        // Prefer tradable instruments.
+        if (type == 'EQUITY' || type == 'ETF' || type == 'MUTUALFUND' || type == 'INDEX') {
+          final sym = m['symbol'] as String?;
+          if (sym != null && sym.isNotEmpty) return sym;
+        }
+      }
+      // Otherwise take the first result of any type.
+      for (final quote in quotes) {
+        final sym = (quote as Map)['symbol'] as String?;
         if (sym != null && sym.isNotEmpty) return sym;
       }
     } catch (_) {}
-    // Fall back to an upper-cased bare ticker if search failed.
-    if (tickerMatch != null) return tickerMatch.group(1)!.toUpperCase();
     return null;
   }
 
