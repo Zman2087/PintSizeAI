@@ -16,10 +16,6 @@ import 'legal/privacy_policy_screen.dart';
 import 'legal/recommended_specs_screen.dart';
 import 'legal/terms_of_service_screen.dart';
 
-/// GoFundMe campaign for keeping PintSize AI on the App Store.
-/// TODO: replace with the real campaign URL once the page is set up.
-const String kGoFundMeUrl = 'https://www.gofundme.com/';
-
 /// Buy Me a Coffee tip link.
 const String kBuyMeACoffeeUrl = 'https://buymeacoffee.com/zwylie';
 
@@ -201,14 +197,6 @@ class SettingsScreen extends ConsumerWidget {
           _Card(
             child: Column(
               children: [
-                _LinkRow(
-                  icon: Icons.favorite_outline,
-                  title: 'Keep PintSize AI on the App Store',
-                  subtitle: 'Chip in via our GoFundMe',
-                  url: kGoFundMeUrl,
-                  iconColor: const Color(0xFFEF6FA3),
-                ),
-                const Divider(height: 1, color: AppColors.borderDefault),
                 _LinkRow(
                   icon: Icons.coffee_outlined,
                   title: 'Buy me a coffee',

@@ -96,8 +96,13 @@ class HuggingFaceService {
       for (final e in list) {
         final m = (e as Map).cast<String, dynamic>();
         final path = m['path'] as String? ?? '';
-        if (!path.toLowerCase().endsWith('.gguf')) continue;
+        final lower = path.toLowerCase();
+        if (!lower.endsWith('.gguf')) continue;
+        // Skip multi-part shards (loader needs a single file).
         if (RegExp(r'-of-\d+', caseSensitive: false).hasMatch(path)) continue;
+        // Skip companion files that are NOT loadable language models — these
+        // are the cause of "Could not open model file" (e.g. vision projectors).
+        if (_isNonModelFile(lower)) continue;
         final size = (m['size'] as num?)?.toInt() ??
             (m['lfs'] is Map ? ((m['lfs']['size'] as num?)?.toInt() ?? 0) : 0);
         files.add(HFFile(path: path, sizeBytes: size));
@@ -107,6 +112,13 @@ class HuggingFaceService {
     } catch (_) {
       return [];
     }
+  }
+
+  /// True for GGUF files that are NOT standalone language models (vision
+  /// projectors, CLIP encoders, etc.) — these fail to load as a model.
+  static bool _isNonModelFile(String lowerPath) {
+    const markers = ['mmproj', 'clip', 'projector', 'vision', 'mm-proj'];
+    return markers.any(lowerPath.contains);
   }
 
   /// Builds a [ModelVariant] for a chosen repo + file so it can flow through the

@@ -65,6 +65,9 @@ class ChatController extends StateNotifier<ChatState> {
   final _cloudSync = CloudSyncService();
   final _persistence = ChatPersistenceService();
 
+  /// Model id whose load most recently failed — skip auto-reloading it.
+  String? _lastLoadFailedModelId;
+
   // Debounced local persistence — keeps disk writes off the hot path.
   Timer? _localSaveTimer;
   bool _restored = false;
@@ -212,17 +215,20 @@ class ChatController extends StateNotifier<ChatState> {
     var runner = _ref.read(llamaRunnerProvider);
     if (runner.status != LlamaStatus.ready) {
       // The model may have been evicted under memory pressure (e.g. iOS freed
-      // it while the app was backgrounded). Try to silently reload it.
+      // it while the app was backgrounded). Try to silently reload it — but not
+      // one whose load just failed (avoids a retry loop on a broken model).
       final active = _ref.read(activeModelProvider);
-      if (active != null) {
+      if (active != null && active.id != _lastLoadFailedModelId) {
         try {
           await _ref.read(modelActionsProvider).loadModel(active);
-        } catch (_) {}
+        } catch (_) {
+          _lastLoadFailedModelId = active.id;
+        }
         runner = _ref.read(llamaRunnerProvider);
       }
       if (runner.status != LlamaStatus.ready) {
         state = state.copyWith(
-          error: 'No model loaded. Open the model picker to choose one.',
+          error: 'No model loaded. Open Models to choose one that fits your device.',
         );
         return;
       }

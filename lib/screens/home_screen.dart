@@ -33,7 +33,7 @@ import '../theme/app_widgets.dart';
 import '../theme/theme.dart';
 import 'history_drawer.dart';
 import 'image_gen_screen.dart';
-import 'model_picker_sheet.dart';
+import 'models_screen.dart';
 import 'settings_screen.dart';
 import 'voice_mode_screen.dart';
 
@@ -218,7 +218,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           return;
 
         case 'model':
-          showModelPicker(context);
+          ModelsScreen.open(context);
           return;
 
         case 'clear':
@@ -1401,7 +1401,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       receivedMb: (starterDl?.receivedBytes ?? 0) / 1e6,
                       totalMb: (starterDl?.totalBytes ?? 1) / 1e6,
                     )
-                  : _WelcomeView(onModelTap: () => showModelPicker(context))
+                  : _WelcomeView(onModelTap: () => ModelsScreen.open(context))
               : _MessageList(
                   messages: messages,
                   activeModel: activeModel,
@@ -1452,7 +1452,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           activeModel: activeModel,
           llamaStatus: llamaStatus,
           showMenuButton: false,
-          onModelTap: () => showModelPicker(context),
+          onModelTap: () => ModelsScreen.open(context),
           onSettingsTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const SettingsScreen()),
           ),
@@ -1484,7 +1484,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: _AppBar(
         activeModel: activeModel,
         llamaStatus: llamaStatus,
-        onModelTap: () => showModelPicker(context),
+        onModelTap: () => ModelsScreen.open(context),
         onSettingsTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const SettingsScreen()),
         ),

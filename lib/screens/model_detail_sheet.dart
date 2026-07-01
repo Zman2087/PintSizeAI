@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/device_recommender/model_catalogue.dart';
+import '../features/device_recommender/recommender_providers.dart';
 import '../features/models/model_download_service.dart';
+import '../features/models/model_fit.dart';
 import '../features/models/model_providers.dart';
 import '../theme/app_widgets.dart';
 import '../theme/theme.dart';
@@ -92,6 +94,46 @@ class _ModelDetailSheet extends ConsumerWidget {
                 ),
               ],
             ),
+
+            const SizedBox(height: 16),
+
+            // Device fit + capability chips
+            Builder(builder: (_) {
+              final profile = ref.watch(deviceProfileProvider).valueOrNull;
+              final fit = profile == null ? null : deviceFit(model, profile);
+              final caps = capabilityTags(model);
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (fit != null)
+                    Builder(builder: (_) {
+                      final b = fitBadge(fit);
+                      return Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(b.icon, size: 15, color: b.color),
+                        const SizedBox(width: 4),
+                        Text(b.label,
+                            style: TextStyle(
+                                color: b.color,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                      ]);
+                    }),
+                  ...caps.map((c) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.borderDefault),
+                        ),
+                        child: Text(c,
+                            style: const TextStyle(
+                                color: AppColors.textMuted, fontSize: 12)),
+                      )),
+                ],
+              );
+            }),
 
             const SizedBox(height: 20),
             const Divider(height: 1),
@@ -204,12 +246,12 @@ class _ModelDetailSheet extends ConsumerWidget {
     return ModelIcon(color: color, icon: icon, size: 44);
   }
 
-  void _handleAction(
+  Future<void> _handleAction(
     BuildContext context,
     WidgetRef ref,
     DownloadState dl,
     bool isActive,
-  ) {
+  ) async {
     if (isActive) {
       ref.read(modelActionsProvider).unloadModel();
       Navigator.of(context).pop();
@@ -222,8 +264,42 @@ class _ModelDetailSheet extends ConsumerWidget {
     if (dl.status == DownloadStatus.downloaded) {
       ref.read(modelActionsProvider).loadModel(model).then((_) {
         if (context.mounted) Navigator.of(context).pop();
+      }).catchError((e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not load model: $e')),
+          );
+        }
       });
       return;
+    }
+
+    // Not downloaded → warn if it's too big for this device, then download.
+    final profile = ref.read(deviceProfileProvider).valueOrNull;
+    if (profile != null && deviceFit(model, profile) == ModelFit.tooBig) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: AppColors.surfaceOverlay,
+          title: const Text('Too big for your device',
+              style: TextStyle(color: AppColors.textPrimary)),
+          content: const Text(
+            'This model likely needs more memory than your iPhone can give an '
+            'app, so it may fail to load or crash. Download anyway?',
+            style: TextStyle(color: AppColors.textMuted),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Download anyway',
+                    style: TextStyle(color: Color(0xFFEF4444)))),
+          ],
+        ),
+      );
+      if (go != true) return;
     }
     ref.read(modelActionsProvider).download(model);
     // Keep the sheet open so the user sees the live download progress.
