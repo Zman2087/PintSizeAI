@@ -113,7 +113,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<_Cmd> _commandSuggestions = [];
   bool _webSearchEnabled = false;
   bool _isListening = false;
-  String _partialTranscript = '';
   StreamSubscription<VoiceEvent>? _voiceSub;
   final _webSearch = WebSearchService();
   final _urlFetch = UrlFetchService();
@@ -458,16 +457,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Future<void> _sendWithWebSearch(String text,
-      {List<ChatAttachment> attachments = const []}) async {
-    final context = await _webSearch.search(text);
-    final enriched = context != null ? '$context\n\nUser: $text' : text;
-    ref
-        .read(chatControllerProvider.notifier)
-        .send(enriched, displayText: text, attachments: attachments);
-    _scrollToBottom();
-  }
-
   /// Builds an enriched message text by prepending Vision analysis and PDF
   /// text for any attached images/PDFs so the LLM has visual context.
   Future<String> _enrichWithMedia(
@@ -541,105 +530,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // ── Image gen availability guard ─────────────────────────────────────────
 
-  bool _imageGenAvailable({bool isVideo = false}) {
-    if (ref.read(imageGenIsRealProvider)) return true;
-    _showImageGenInstallSheet(isVideo: isVideo);
-    return false;
-  }
-
-  void _showImageGenInstallSheet({bool isVideo = false}) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surfaceBase,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.accentGreen.withAlpha(25),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    isVideo
-                        ? Icons.smart_display_outlined
-                        : Icons.auto_awesome_outlined,
-                    color: AppColors.accentGreen,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isVideo ? 'Video generation' : 'Image generation',
-                        style: AppTypography.modelName,
-                      ),
-                      Text('Model not installed',
-                          style: AppTypography.modelDesc
-                              .copyWith(color: AppColors.accentGreen)),
-                    ],
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 16),
-              Text(
-                isVideo
-                    ? 'Video generation creates animated images on-device using Stable Diffusion. '
-                        'You need to download a Core ML model first.'
-                    : 'Image generation runs entirely on your device using Core ML '
-                        '(Stable Diffusion). Download a model to get started.',
-                style: AppTypography.modelDesc,
-              ),
-              const SizedBox(height: 8),
-              ...kSDModelCatalogue.map((m) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        Icon(Icons.fiber_manual_record,
-                            size: 6, color: AppColors.textMuted),
-                        const SizedBox(width: 8),
-                        Text('${m.displayName} — ${m.sizeLabel}',
-                            style: AppTypography.modelDesc),
-                      ],
-                    ),
-                  )),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const ImageGenScreen()),
-                    );
-                  },
-                  icon: const Icon(Icons.download_outlined, size: 16),
-                  label: const Text('Install an image generation model'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.accentGreen,
-                    foregroundColor: Colors.black,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   bool _isImageGenIntent(String text) {
     final lower = text.toLowerCase();
@@ -1220,7 +1110,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final svc = ref.read(voiceServiceProvider);
     setState(() {
       _isListening = true;
-      _partialTranscript = '';
       _inputCtrl.clear();
     });
 
@@ -1230,7 +1119,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _voiceSub = svc.events.listen(
       (evt) {
         if (evt is VoiceTranscriptEvent) {
-          setState(() => _partialTranscript = evt.text);
           _inputCtrl.text = evt.text;
           _inputCtrl.selection = TextSelection.collapsed(
               offset: _inputCtrl.text.length);
@@ -1396,10 +1284,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: messages.isEmpty && !modelLoaded
               ? isAutoDownloading
                   ? _AutoDownloadView(
-                      progress: starterDl?.progress ?? 0,
+                      progress: starterDl.progress,
                       isLoading: llamaStatus == LlamaStatus.loading,
-                      receivedMb: (starterDl?.receivedBytes ?? 0) / 1e6,
-                      totalMb: (starterDl?.totalBytes ?? 1) / 1e6,
+                      receivedMb: starterDl.receivedBytes / 1e6,
+                      totalMb: (starterDl.totalBytes == 0 ? 1 : starterDl.totalBytes) / 1e6,
                     )
                   : _WelcomeView(onModelTap: () => ModelsScreen.open(context))
               : _MessageList(

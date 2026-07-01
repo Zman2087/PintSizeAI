@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/device_recommender/model_catalogue.dart';
 import '../features/device_recommender/recommender_providers.dart';
 import '../features/models/model_providers.dart';
-import '../features/models/model_download_service.dart';
 import '../features/settings/settings_providers.dart';
 import '../theme/theme.dart';
 

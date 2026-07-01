@@ -3,7 +3,6 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mypocketai/features/chat/chat_controller.dart';
 import 'package:mypocketai/features/chat/chat_message.dart';
 import 'package:mypocketai/features/chat/chat_providers.dart';
 import 'package:mypocketai/features/device_recommender/model_catalogue.dart';

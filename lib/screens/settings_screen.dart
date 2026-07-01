@@ -7,7 +7,6 @@ import '../features/device_recommender/recommender_providers.dart';
 import '../features/image_gen/image_gen_providers.dart';
 import '../features/models/model_providers.dart';
 import '../features/settings/settings_providers.dart';
-import '../features/settings/settings_service.dart';
 import '../features/voice/voice_providers.dart';
 import '../features/voice/voice_service.dart';
 import '../theme/theme.dart';

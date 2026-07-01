@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/services.dart';
 
 /// Everything we can know about the device that affects inference performance.

@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../chat/chat_controller.dart';
 import '../chat/chat_providers.dart';
 
 final siriServiceProvider = Provider<SiriService>((ref) {

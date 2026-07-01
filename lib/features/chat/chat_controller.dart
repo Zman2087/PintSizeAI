@@ -8,7 +8,6 @@ import '../llm/llama_runner.dart';
 import '../llm/llm_providers.dart';
 import '../models/model_providers.dart';
 import '../settings/settings_providers.dart';
-import '../settings/settings_service.dart';
 import '../sync/cloud_sync_service.dart';
 import '../voice/voice_providers.dart';
 import '../diagnostics/diag_log.dart';
