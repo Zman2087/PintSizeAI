@@ -63,12 +63,12 @@ class _HistoryDrawerState extends ConsumerState<HistoryDrawer> {
               decoration: InputDecoration(
                 hintText: 'Search conversations…',
                 hintStyle: AppTypography.sidebarSubtitle,
-                prefixIcon: const Icon(Icons.search,
+                prefixIcon: Icon(Icons.search,
                     size: 16, color: AppColors.textDim),
                 suffixIcon: _query.isNotEmpty
                     ? GestureDetector(
                         onTap: () => setState(() => _query = ''),
-                        child: const Icon(Icons.close,
+                        child: Icon(Icons.close,
                             size: 14, color: AppColors.textDim),
                       )
                     : null,
@@ -159,12 +159,12 @@ class _HistoryDrawerState extends ConsumerState<HistoryDrawer> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceOverlay,
-        title: const Text('Rename chat', style: TextStyle(color: Colors.white)),
+        title: Text('Rename chat', style: TextStyle(color: AppColors.textPrimary)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: TextStyle(color: AppColors.textPrimary),
+          decoration: InputDecoration(
             hintText: 'Chat name',
             hintStyle: TextStyle(color: AppColors.textDim),
           ),
@@ -176,7 +176,7 @@ class _HistoryDrawerState extends ConsumerState<HistoryDrawer> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: AppColors.textMuted)),
           ),
           TextButton(
@@ -212,7 +212,7 @@ class _Header extends StatelessWidget {
               color: AppColors.white,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.memory,
+            child: Icon(Icons.memory,
                 color: AppColors.surfaceSidebar, size: 16),
           ),
           const SizedBox(width: 10),
@@ -283,14 +283,14 @@ class _SessionTile extends StatelessWidget {
                     maxLines: 1),
               ),
               if (isPinned)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(left: 4),
                   child: Icon(Icons.push_pin, size: 12, color: AppColors.textDim),
                 ),
               if (isActive)
                 GestureDetector(
                   onTap: () => _showOptions(context),
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(4),
                     child: Icon(Icons.more_horiz,
                         size: 14, color: AppColors.textDim),
@@ -325,7 +325,7 @@ class _SessionTile extends StatelessWidget {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.drive_file_rename_outline,
+              leading: Icon(Icons.drive_file_rename_outline,
                   color: AppColors.textMuted),
               title: Text('Rename', style: AppTypography.sidebarTitle),
               onTap: () {
@@ -346,7 +346,7 @@ class _SessionTile extends StatelessWidget {
             ),
             ListTile(
               leading:
-                  const Icon(Icons.share_outlined, color: AppColors.textMuted),
+                  Icon(Icons.share_outlined, color: AppColors.textMuted),
               title: Text('Share as text', style: AppTypography.sidebarTitle),
               onTap: () {
                 Navigator.pop(context);
@@ -354,7 +354,7 @@ class _SessionTile extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.picture_as_pdf_outlined,
+              leading: Icon(Icons.picture_as_pdf_outlined,
                   color: AppColors.textMuted),
               title: Text('Export as PDF', style: AppTypography.sidebarTitle),
               onTap: () {

@@ -28,7 +28,7 @@ final persistentMemoriesProvider =
 
 /// Whether AI responses are automatically spoken aloud.
 final autoSpeakProvider = StateNotifierProvider<_BoolNotifier, bool>((ref) {
-  final notifier = _BoolNotifier(true);
+  final notifier = _BoolNotifier(false);
   ref.read(settingsServiceProvider).getAutoSpeak().then(notifier._set);
   return notifier;
 });

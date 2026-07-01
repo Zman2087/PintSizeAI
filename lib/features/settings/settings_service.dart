@@ -113,8 +113,9 @@ class SettingsService {
 
   Future<bool> getAutoSpeak() async {
     final prefs = await SharedPreferences.getInstance();
-    // Default ON so the assistant speaks its replies out of the box.
-    return prefs.getBool(_kAutoSpeak) ?? true;
+    // Default OFF — typed replies stay silent. Voice Mode turns this on while
+    // active, and the user can enable it in Settings for always-spoken replies.
+    return prefs.getBool(_kAutoSpeak) ?? false;
   }
 
   Future<void> setAutoSpeak(bool value) async {

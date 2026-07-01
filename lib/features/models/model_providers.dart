@@ -130,6 +130,10 @@ class ModelActions {
   ModelActions(this._ref);
   final Ref _ref;
 
+  /// Guards against two concurrent loads racing into the native engine
+  /// (which unloads-then-loads and can crash if re-entered).
+  bool _loading = false;
+
   /// Download [model] from Hugging Face. No-op if already downloading.
   Future<void> download(ModelVariant model) {
     final svc = _ref.read(modelDownloadProvider);
@@ -142,14 +146,44 @@ class ModelActions {
 
   /// Download (if needed) then load [model] into the inference engine.
   Future<void> loadModel(ModelVariant model) async {
+    if (_loading) {
+      DiagLog.log('loadModel id=${model.id} SKIPPED (a load is already running)');
+      return;
+    }
+    _loading = true;
+    try {
+      await _loadModelImpl(model);
+    } finally {
+      _loading = false;
+    }
+  }
+
+  Future<void> _loadModelImpl(ModelVariant model) async {
     final storage = _ref.read(modelStorageProvider);
-    final isReady = await storage.isDownloaded(model.id);
-    DiagLog.log('loadModel id=${model.id} alreadyDownloaded=$isReady');
+
+    // A file merely existing isn't enough — a cancelled/failed download leaves a
+    // truncated .gguf that would crash the loader. Require it to be at least
+    // ~85% of the expected size to count as complete.
+    Future<bool> isComplete() async {
+      if (!await storage.isDownloaded(model.id)) return false;
+      if (model.fileSizeBytes <= 0) return true; // unknown expected size
+      final onDisk = await storage.downloadedSizeBytes(model.id);
+      return onDisk >= model.fileSizeBytes * 0.85;
+    }
+
+    final isReady = await isComplete();
+    DiagLog.log('loadModel id=${model.id} alreadyComplete=$isReady');
 
     if (!isReady) {
+      // download() awaits the full transfer (resuming a partial via Range).
       await download(model);
-      // Wait until downloaded
-      await _waitForDownload(model.id);
+      if (!await isComplete()) {
+        DiagLog.log('loadModel id=${model.id} DOWNLOAD INCOMPLETE');
+        // Remove the bad/partial file so a retry starts clean.
+        try { await storage.delete(model.id); } catch (_) {}
+        _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.error;
+        throw Exception('Download did not finish. Check your connection and try again.');
+      }
     }
 
     final path = await storage.modelPath(model.id);
@@ -209,25 +243,4 @@ class ModelActions {
     _ref.read(siriServiceProvider).setModelReady(false);
   }
 
-  Future<void> _waitForDownload(String modelId) async {
-    final completer = Completer<void>();
-    final sub = _ref.read(modelDownloadProvider).progressStream.listen(
-      (entry) {
-        if (entry.key == modelId) {
-          if (entry.value.status == DownloadStatus.downloaded) {
-            if (!completer.isCompleted) completer.complete();
-          } else if (entry.value.status == DownloadStatus.error) {
-            if (!completer.isCompleted) {
-              completer.completeError(entry.value.error ?? 'Download failed');
-            }
-          }
-        }
-      },
-    );
-    try {
-      await completer.future;
-    } finally {
-      sub.cancel();
-    }
-  }
 }

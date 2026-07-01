@@ -1,6 +1,7 @@
 import Flutter
 import Speech
 import AVFoundation
+import UIKit
 
 /// Flutter plugin for voice input (STT) and voice output (TTS).
 ///
@@ -86,26 +87,35 @@ final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
             result(synthesizer.isSpeaking)
 
         case "listVoices":
-            // English voices first, then the rest; higher quality first.
+            // Personal voices first, then by quality; English preferred.
             let voices = AVSpeechSynthesisVoice.speechVoices()
                 .sorted { a, b in
+                    let ap = Self.isPersonal(a) ? 1 : 0
+                    let bp = Self.isPersonal(b) ? 1 : 0
+                    if ap != bp { return ap > bp }
                     if a.quality.rawValue != b.quality.rawValue {
                         return a.quality.rawValue > b.quality.rawValue
                     }
                     return a.name < b.name
                 }
                 .map { v -> [String: Any] in
+                    let personal = Self.isPersonal(v)
                     let q: String
-                    switch v.quality {
-                    case .premium:  q = "Premium"
-                    case .enhanced: q = "Enhanced"
-                    default:        q = "Standard"
+                    if personal {
+                        q = "Your voice"
+                    } else {
+                        switch v.quality {
+                        case .premium:  q = "Premium"
+                        case .enhanced: q = "Enhanced"
+                        default:        q = "Standard"
+                        }
                     }
                     return [
                         "id": v.identifier,
                         "name": v.name,
                         "lang": v.language,
                         "quality": q,
+                        "isPersonal": personal,
                     ]
                 }
             result(voices)
@@ -115,6 +125,26 @@ final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
             selectedVoiceId = (call.arguments as? String)?.isEmpty == false
                 ? (call.arguments as? String) : nil
             result(nil)
+
+        case "openSettings":
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                DispatchQueue.main.async { UIApplication.shared.open(url) }
+            }
+            result(nil)
+
+        case "personalVoiceStatus":
+            result(Self.personalVoiceStatusString())
+
+        case "requestPersonalVoice":
+            if #available(iOS 17.0, *) {
+                AVSpeechSynthesizer.requestPersonalVoiceAuthorization { status in
+                    DispatchQueue.main.async {
+                        result(Self.statusToString(status))
+                    }
+                }
+            } else {
+                result("unsupported")
+            }
 
         default:
             result(FlutterMethodNotImplemented)
@@ -265,6 +295,32 @@ final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
             utterance.voice = VoicePlugin.bestDefaultVoice()
         }
         synthesizer.speak(utterance)
+    }
+
+    /// Whether a voice is the user's on-device Personal Voice (iOS 17+).
+    private static func isPersonal(_ v: AVSpeechSynthesisVoice) -> Bool {
+        if #available(iOS 17.0, *) {
+            return v.voiceTraits.contains(.isPersonalVoice)
+        }
+        return false
+    }
+
+    @available(iOS 17.0, *)
+    private static func statusToString(_ s: AVSpeechSynthesizer.PersonalVoiceAuthorizationStatus) -> String {
+        switch s {
+        case .authorized:    return "authorized"
+        case .denied:        return "denied"
+        case .unsupported:   return "unsupported"
+        case .notDetermined: return "notDetermined"
+        @unknown default:    return "notDetermined"
+        }
+    }
+
+    private static func personalVoiceStatusString() -> String {
+        if #available(iOS 17.0, *) {
+            return statusToString(AVSpeechSynthesizer.personalVoiceAuthorizationStatus)
+        }
+        return "unsupported"
     }
 
     /// Picks the most natural-sounding voice: highest quality first

@@ -14,6 +14,7 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
     struct llama_sampler *_sampler;
     mtmd_context         *_mctx;   // multimodal projector context (nullable)
     std::atomic<bool>     _cancelled;
+    dispatch_queue_t      _genQueue; // serial — one generation at a time
 }
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────
@@ -26,6 +27,7 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
         _sampler   = nullptr;
         _mctx      = nullptr;
         _cancelled.store(false);
+        _genQueue  = dispatch_queue_create("ai.pintsize.llama.generate", DISPATCH_QUEUE_SERIAL);
         llama_backend_init();
     }
     return self;
@@ -190,16 +192,20 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
         return;
     }
 
-    _cancelled.store(false);
-    [self _buildSampler:temperature topP:topP];
+    // Signal any in-flight generation to stop; the serial queue then runs us next.
+    _cancelled.store(true);
+    const float temp = temperature;
+    const float tp   = topP;
 
-    // Capture ivars for the background block
-    struct llama_model   *model   = _model;
-    struct llama_context *ctx     = _ctx;
-    struct llama_sampler *sampler = _sampler;
-
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    dispatch_async(_genQueue, ^{
         @autoreleasepool {
+            // Rebuild the sampler inside the serial queue so it's never freed
+            // while another generation is mid-flight.
+            self->_cancelled.store(false);
+            [self _buildSampler:temp topP:tp];
+            struct llama_model   *model   = self->_model;
+            struct llama_context *ctx     = self->_ctx;
+            struct llama_sampler *sampler = self->_sampler;
             const struct llama_vocab *vocab = llama_model_get_vocab(model);
             const char *promptCStr = [prompt UTF8String];
             int32_t     promptLen  = (int32_t)strlen(promptCStr);
@@ -323,21 +329,23 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
         return;
     }
 
-    _cancelled.store(false);
-    [self _buildSampler:temperature topP:topP];
-
-    struct llama_context *ctx     = _ctx;
-    struct llama_model   *model   = _model;
-    struct llama_sampler *sampler = _sampler;
-    mtmd_context         *mctx    = _mctx;
+    _cancelled.store(true); // stop any in-flight generation first
+    const float temp = temperature;
+    const float tp   = topP;
 
     std::vector<unsigned char> imgBytes(
         (const unsigned char *)imageData.bytes,
         (const unsigned char *)imageData.bytes + imageData.length);
     std::string promptStr(prompt.UTF8String ? prompt.UTF8String : "");
 
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    dispatch_async(_genQueue, ^{
         @autoreleasepool {
+            self->_cancelled.store(false);
+            [self _buildSampler:temp topP:tp];
+            struct llama_context *ctx     = self->_ctx;
+            struct llama_model   *model   = self->_model;
+            struct llama_sampler *sampler = self->_sampler;
+            mtmd_context         *mctx    = self->_mctx;
             auto fail = ^(NSString *msg) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     handler(nil, YES, [NSError errorWithDomain:kLlamaErrorDomain code:8

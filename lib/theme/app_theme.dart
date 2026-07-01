@@ -16,10 +16,22 @@ import 'app_typography.dart';
 ///     ...
 ///   )
 abstract final class AppTheme {
-  static ThemeData get dark {
+  static ThemeData get dark => _build(Brightness.dark);
+  static ThemeData get light => _build(Brightness.light);
+
+  static ThemeData _build(Brightness brightness) {
+    // Resolve AppColors tokens for this brightness while we build.
+    final prev = AppColors.brightness;
+    AppColors.brightness = brightness;
+    final theme = _buildInner(brightness);
+    AppColors.brightness = prev;
+    return theme;
+  }
+
+  static ThemeData _buildInner(Brightness brightness) {
     // Base colour scheme — Flutter will derive many widget defaults from this.
-    const colorScheme = ColorScheme(
-      brightness: Brightness.dark,
+    final colorScheme = ColorScheme(
+      brightness: brightness,
 
       // Primary — the accent. Used on FABs, active states, progress.
       primary: AppColors.accentGreen,
@@ -71,13 +83,16 @@ abstract final class AppTheme {
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      brightness: Brightness.dark,
+      brightness: brightness,
       scaffoldBackgroundColor: AppColors.surfaceBase,
       // ── Typography base ──────────────────────────────────────────────────
       // Set Inter as the default for all Material text roles.
       // Individual widgets that need specific sizing use AppTypography directly.
       textTheme: GoogleFonts.interTextTheme(
-        ThemeData.dark().textTheme,
+        (brightness == Brightness.dark
+                ? ThemeData.dark()
+                : ThemeData.light())
+            .textTheme,
       ).apply(
         bodyColor: AppColors.textPrimary,
         displayColor: AppColors.textPrimary,
@@ -93,21 +108,22 @@ abstract final class AppTheme {
         scrolledUnderElevation: 0,
         surfaceTintColor: AppColors.transparent,
         titleTextStyle: AppTypography.navTitle,
-        iconTheme: const IconThemeData(
+        iconTheme: IconThemeData(
           color: AppColors.textMuted,
           size: 20,
         ),
-        systemOverlayStyle: const SystemUiOverlayStyle(
+        systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: AppColors.transparent,
-          statusBarIconBrightness: Brightness.light,
-          statusBarBrightness: Brightness.dark,
+          statusBarIconBrightness:
+              brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: brightness,
         ),
       ),
 
       // ── Bottom navigation / drawer ────────────────────────────────────────
       // ChatGPT uses a slide-in drawer, not a BottomNavigationBar.
       // These tokens cover the drawer surface.
-      drawerTheme: const DrawerThemeData(
+      drawerTheme: DrawerThemeData(
         backgroundColor: AppColors.surfaceSidebar,
         surfaceTintColor: AppColors.transparent,
         elevation: 0,
@@ -115,7 +131,7 @@ abstract final class AppTheme {
       ),
 
       // ── Divider ──────────────────────────────────────────────────────────
-      dividerTheme: const DividerThemeData(
+      dividerTheme: DividerThemeData(
         color: AppColors.borderSubtle,
         thickness: 1,
         space: 0, // callers control vertical spacing explicitly
@@ -141,7 +157,7 @@ abstract final class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
+          borderSide: BorderSide(
             color: AppColors.borderDefault,
             width: 1,
           ),
@@ -184,7 +200,7 @@ abstract final class AppTheme {
 
       // ── List tiles ───────────────────────────────────────────────────────
       // Used for sidebar history rows and model picker rows.
-      listTileTheme: const ListTileThemeData(
+      listTileTheme: ListTileThemeData(
         tileColor: AppColors.transparent,
         selectedTileColor: AppColors.surfaceOverlay,
         iconColor: AppColors.textMuted,
@@ -208,7 +224,7 @@ abstract final class AppTheme {
 
       // ── Bottom sheet ─────────────────────────────────────────────────────
       // The model picker slides up as a sheet.
-      bottomSheetTheme: const BottomSheetThemeData(
+      bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: AppColors.surfaceBase,
         surfaceTintColor: AppColors.transparent,
         modalBackgroundColor: AppColors.surfaceBase,
@@ -221,7 +237,7 @@ abstract final class AppTheme {
       ),
 
       // ── Popup / context menu ─────────────────────────────────────────────
-      popupMenuTheme: const PopupMenuThemeData(
+      popupMenuTheme: PopupMenuThemeData(
         color: AppColors.surfaceOverlay,
         surfaceTintColor: AppColors.transparent,
         elevation: 4,
@@ -249,7 +265,7 @@ abstract final class AppTheme {
       ),
 
       // ── Circular progress ────────────────────────────────────────────────
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
+      progressIndicatorTheme: ProgressIndicatorThemeData(
         color: AppColors.accentGreen,
         linearTrackColor: AppColors.surfaceOverlay,
         circularTrackColor: AppColors.surfaceOverlay,
@@ -262,7 +278,7 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppColors.borderDefault),
         ),
-        textStyle: const TextStyle(
+        textStyle: TextStyle(
           fontSize: 11,
           color: AppColors.textPrimary,
         ),

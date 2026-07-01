@@ -56,14 +56,14 @@ class StockChartCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(symbol,
-                        style: const TextStyle(
-                            color: Colors.white,
+                        style: TextStyle(
+                            color: AppColors.textPrimary,
                             fontSize: 16,
                             fontWeight: FontWeight.w700)),
                     Text(name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: AppColors.textDim, fontSize: 12)),
                   ],
                 ),
@@ -72,8 +72,8 @@ class StockChartCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text('${price.toStringAsFixed(2)} $currency',
-                      style: const TextStyle(
-                          color: Colors.white,
+                      style: TextStyle(
+                          color: AppColors.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w700)),
                   Row(
@@ -104,7 +104,7 @@ class StockChartCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            const Text('Past month',
+            Text('Past month',
                 style: TextStyle(color: AppColors.textDim, fontSize: 10)),
           ],
         ],

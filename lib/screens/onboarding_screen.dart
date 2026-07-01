@@ -70,16 +70,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 'Welcome to PintSize AI',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                     fontSize: 26,
                     fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'A private AI assistant that runs entirely on your '
                 'device — chat, voice, and images with nothing sent to the cloud.',
                 textAlign: TextAlign.center,
@@ -122,7 +122,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               if (!_installing)
                 TextButton(
                   onPressed: _finish,
-                  child: const Text("I'll choose a model later",
+                  child: Text("I'll choose a model later",
                       style: TextStyle(color: AppColors.textMuted)),
                 ),
               const SizedBox(height: 16),
@@ -155,7 +155,7 @@ class _FeatureRow extends StatelessWidget {
           Icon(icon, color: AppColors.accentGreen, size: 20),
           const SizedBox(width: 14),
           Text(text,
-              style: const TextStyle(color: Colors.white, fontSize: 15)),
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 15)),
         ],
       ),
     );
@@ -201,11 +201,11 @@ class _ModelCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(model.displayName,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           Text('${model.parametersBillions}B · ${model.quant.label} · $sizeGb GB',
-              style: const TextStyle(color: AppColors.textDim, fontSize: 13)),
+              style: TextStyle(color: AppColors.textDim, fontSize: 13)),
           const SizedBox(height: 14),
           if (isThisInstalling) ...[
             ClipRRect(
@@ -221,7 +221,7 @@ class _ModelCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               pct > 0 ? 'Downloading…  $pct%' : 'Preparing…',
-              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),
           ] else
             SizedBox(

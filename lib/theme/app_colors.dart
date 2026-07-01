@@ -1,85 +1,54 @@
 import 'package:flutter/material.dart';
 
-/// PocketLLM color tokens — lifted 1:1 from ChatGPT's dark theme.
+/// PintSize AI colour tokens — adaptive light/dark.
 ///
-/// These are not guesses. They come from inspecting ChatGPT's actual CSS
-/// custom properties (--main-surface-primary, --sidebar-surface-primary, etc.)
-/// and cross-referencing with the OpenAI Apps SDK design system.
+/// Theme-able surface/border/text tokens resolve at runtime based on
+/// [brightness], which is set once per build from the iOS system appearance
+/// (see `main.dart`). Accent, model and absolute colours are the same in both
+/// themes and stay `const` so their many `const` widget usages keep compiling.
 ///
-/// Naming follows the same semantic layer pattern OpenAI uses internally:
-///   surface  → background planes
-///   overlay  → elevated cards, hover states
-///   border   → dividers, outlines
-///   text     → content hierarchy
-///   accent   → one branded action colour
+/// Dark values mirror ChatGPT's dark theme; light values mirror its light theme.
 abstract final class AppColors {
-  // ─────────────────────────────────────────────────────
-  // Surface stack  (darkest → lightest)
-  // ─────────────────────────────────────────────────────
+  /// Current appearance. Set from MediaQuery in the app root each build.
+  static Brightness brightness = Brightness.dark;
+  static bool get _d => brightness == Brightness.dark;
 
-  /// True app background. Every screen sits on this.
-  static const Color surfaceBase = Color(0xFF212121);
+  // ── Surfaces ──
+  static Color get surfaceBase =>
+      _d ? const Color(0xFF212121) : const Color(0xFFFFFFFF);
+  static Color get surfaceSidebar =>
+      _d ? const Color(0xFF171717) : const Color(0xFFF9F9F9);
+  static Color get surfaceOverlay =>
+      _d ? const Color(0xFF2F2F2F) : const Color(0xFFF4F4F4);
+  static Color get surfaceActive =>
+      _d ? const Color(0xFF3A3A3A) : const Color(0xFFECECEC);
 
-  /// Sidebar / drawer rail. One step darker than base.
-  static const Color surfaceSidebar = Color(0xFF171717);
+  // ── Borders ──
+  static Color get borderDefault =>
+      _d ? const Color(0xFF3A3A3A) : const Color(0xFFE3E3E3);
+  static Color get borderSubtle =>
+      _d ? const Color(0xFF2A2A2A) : const Color(0xFFEDEDED);
 
-  /// Cards, input fields, user message bubbles, hover targets.
-  static const Color surfaceOverlay = Color(0xFF2F2F2F);
+  // ── Text hierarchy ──
+  static Color get textPrimary =>
+      _d ? const Color(0xFFECECEC) : const Color(0xFF0D0D0D);
+  static Color get textDefault => textPrimary;
+  static Color get textMuted =>
+      _d ? const Color(0xFF8E8EA0) : const Color(0xFF6B6B7B);
+  static Color get textDim =>
+      _d ? const Color(0xFF585858) : const Color(0xFF9B9BA6);
 
-  /// Pressed / active states — barely perceptible lift.
-  static const Color surfaceActive = Color(0xFF3A3A3A);
-
-  // ─────────────────────────────────────────────────────
-  // Borders
-  // ─────────────────────────────────────────────────────
-
-  /// Default divider — used between sidebar rows, input outlines.
-  static const Color borderDefault = Color(0xFF3A3A3A);
-
-  /// Subtle separator — used inside chat groups, section breaks.
-  static const Color borderSubtle = Color(0xFF2A2A2A);
-
-  // ─────────────────────────────────────────────────────
-  // Text hierarchy
-  // ─────────────────────────────────────────────────────
-
-  /// Primary readable text. Not pure white — reduces eye strain.
-  static const Color textPrimary = Color(0xFFECECEC);
-
-  /// Alias for [textPrimary] — use in new screens.
-  static const Color textDefault = textPrimary;
-
-  /// Secondary / muted — placeholders, labels, subtitles.
-  static const Color textMuted = Color(0xFF8E8EA0);
-
-  /// Tertiary / dim — timestamps, section headers, disabled.
-  static const Color textDim = Color(0xFF585858);
-
-  // ─────────────────────────────────────────────────────
-  // Accent
-  // ─────────────────────────────────────────────────────
-
-  /// OpenAI's signature green. Used for: checkmarks, online dots,
-  /// download progress, user avatar background.
-  /// Not overused — only on truly confirmatory / success moments.
+  // ── Accent (same in both themes; used sparingly) ──
   static const Color accentGreen = Color(0xFF19C37D);
 
-  // ─────────────────────────────────────────────────────
-  // Semantic model colours
-  // Used on model icons only. Keep contained — they should
-  // feel like OS system icons, not brand colours.
-  // ─────────────────────────────────────────────────────
-
+  // ── Model icon colours (same in both themes) ──
   static const Color modelWhite = Color(0xFFFFFFFF);
-  static const Color modelPurple = Color(0xFF7C3AED); // Qwen / Mistral
-  static const Color modelBlue = Color(0xFF2563EB);   // Phi
-  static const Color modelGreen = Color(0xFF16A34A);  // Gemma
-  static const Color modelSurface = Color(0xFF2F2F2F); // neutral / unknown
+  static const Color modelPurple = Color(0xFF7C3AED);
+  static const Color modelBlue = Color(0xFF2563EB);
+  static const Color modelGreen = Color(0xFF16A34A);
+  static const Color modelSurface = Color(0xFF2F2F2F);
 
-  // ─────────────────────────────────────────────────────
-  // Absolute
-  // ─────────────────────────────────────────────────────
-
+  // ── Absolute ──
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
   static const Color transparent = Color(0x00000000);

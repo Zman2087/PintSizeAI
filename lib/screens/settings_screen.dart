@@ -48,7 +48,7 @@ class SettingsScreen extends ConsumerWidget {
                       color: AppColors.surfaceActive,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.memory,
+                    child: Icon(Icons.memory,
                         color: AppColors.textMuted, size: 18),
                   ),
                   const SizedBox(width: 12),
@@ -272,8 +272,8 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surfaceOverlay,
-        title: const Text('Open Source Licences',
-            style: TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text('Open Source Licences',
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 16)),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,8 +310,8 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surfaceOverlay,
-        title: const Text('Clear chat history?',
-            style: TextStyle(color: Colors.white)),
+        title: Text('Clear chat history?',
+            style: TextStyle(color: AppColors.textPrimary)),
         content: Text(
           'This will remove all conversations from this session. '
           'Downloaded models will not be affected.',
@@ -712,7 +712,7 @@ class _SystemPromptCardState extends ConsumerState<_SystemPromptCard> {
         children: [
           Row(
             children: [
-              const Icon(Icons.edit_note_outlined,
+              Icon(Icons.edit_note_outlined,
                   size: 18, color: AppColors.textMuted),
               const SizedBox(width: 8),
               Text('Custom system prompt', style: AppTypography.modelName),
@@ -736,11 +736,11 @@ class _SystemPromptCardState extends ConsumerState<_SystemPromptCard> {
               fillColor: AppColors.surfaceBase,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.borderDefault),
+                borderSide: BorderSide(color: AppColors.borderDefault),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.borderDefault),
+                borderSide: BorderSide(color: AppColors.borderDefault),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -775,7 +775,7 @@ class _MemoryCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.psychology_outlined,
+              Icon(Icons.psychology_outlined,
                   size: 18, color: AppColors.textMuted),
               const SizedBox(width: 12),
               Expanded(
@@ -841,7 +841,7 @@ class _VoiceSettingsCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.record_voice_over_outlined,
+              Icon(Icons.record_voice_over_outlined,
                   size: 18, color: AppColors.textMuted),
               const SizedBox(width: 12),
               Expanded(
@@ -864,7 +864,7 @@ class _VoiceSettingsCard extends ConsumerWidget {
               ),
             ],
           ),
-          const Divider(height: 1, color: AppColors.borderDefault, indent: 30),
+          Divider(height: 1, color: AppColors.borderDefault, indent: 30),
           const SizedBox(height: 4),
           // AI voice picker
           InkWell(
@@ -873,7 +873,7 @@ class _VoiceSettingsCard extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.graphic_eq,
+                  Icon(Icons.graphic_eq,
                       size: 18, color: AppColors.textMuted),
                   const SizedBox(width: 12),
                   Expanded(
@@ -886,17 +886,17 @@ class _VoiceSettingsCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right,
+                  Icon(Icons.chevron_right,
                       size: 18, color: AppColors.textDim),
                 ],
               ),
             ),
           ),
-          const Divider(height: 1, color: AppColors.borderDefault, indent: 30),
+          Divider(height: 1, color: AppColors.borderDefault, indent: 30),
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.mic_none_outlined,
+              Icon(Icons.mic_none_outlined,
                   size: 18, color: AppColors.textMuted),
               const SizedBox(width: 12),
               Expanded(
@@ -940,15 +940,15 @@ class _VoiceSettingsCard extends ConsumerWidget {
             return ListView(
               controller: scroll,
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
                   child: Text('AI voice',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w600)),
                 ),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
                   child: Text(
                     'For the most human voices, pick an "Enhanced" or "Premium" '
@@ -957,6 +957,20 @@ class _VoiceSettingsCard extends ConsumerWidget {
                     style: TextStyle(color: AppColors.textDim, fontSize: 12),
                   ),
                 ),
+                // Personal Voice — speak in the user's own cloned voice.
+                ListTile(
+                  leading: const Icon(Icons.face_retouching_natural,
+                      color: AppColors.accentGreen),
+                  title: Text('Speak in my own voice',
+                      style: TextStyle(color: AppColors.textPrimary)),
+                  subtitle: Text(
+                      'Use your iOS Personal Voice (private, on-device)',
+                      style: TextStyle(color: AppColors.textDim, fontSize: 12)),
+                  trailing: Icon(Icons.chevron_right,
+                      size: 18, color: AppColors.textDim),
+                  onTap: () => _setupPersonalVoice(ctx, ref, voice),
+                ),
+                Divider(height: 1, color: AppColors.borderSubtle),
                 _VoiceTile(
                   name: 'System default',
                   detail: 'Use the device default voice',
@@ -989,6 +1003,83 @@ class _VoiceSettingsCard extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _setupPersonalVoice(
+      BuildContext ctx, WidgetRef ref, dynamic voice) async {
+    final status = await voice.requestPersonalVoice();
+    if (!ctx.mounted) return;
+
+    if (status == 'authorized') {
+      final voices = await voice.listVoices();
+      final personal = voices.where((v) => v.isPersonal).toList();
+      if (personal.isNotEmpty) {
+        final v = personal.first;
+        ref.read(selectedVoiceProvider.notifier).update(v.id);
+        ref.read(settingsServiceProvider).setVoiceId(v.id);
+        await voice.setVoice(v.id);
+        await voice.speak('Hi, this is your Personal Voice.');
+        if (ctx.mounted) Navigator.pop(ctx);
+      } else if (ctx.mounted) {
+        _personalVoiceDialog(
+          ctx, voice,
+          title: 'Create your Personal Voice',
+          message:
+              'PintSize can speak in your voice, but first you need to create '
+              'it in iOS Settings ▸ Accessibility ▸ Personal Voice (a one-time '
+              '~15-minute recording, trained privately on your device). Once '
+              'it\'s ready, come back and tap this again.',
+          showSettings: true,
+        );
+      }
+    } else if (status == 'denied' && ctx.mounted) {
+      _personalVoiceDialog(
+        ctx, voice,
+        title: 'Permission needed',
+        message:
+            'To speak in your voice, allow PintSize to use your Personal Voice '
+            'in iOS Settings ▸ Accessibility ▸ Personal Voice.',
+        showSettings: true,
+      );
+    } else if (ctx.mounted) {
+      _personalVoiceDialog(
+        ctx, voice,
+        title: 'Not available',
+        message:
+            'Personal Voice needs iPhone 12 or newer on iOS 17 or later. Create '
+            'one in Settings ▸ Accessibility ▸ Personal Voice.',
+        showSettings: true,
+      );
+    }
+  }
+
+  void _personalVoiceDialog(BuildContext ctx, dynamic voice,
+      {required String title, required String message, bool showSettings = false}) {
+    showDialog(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.surfaceOverlay,
+        title: Text(title, style: TextStyle(color: AppColors.textPrimary)),
+        content: Text(message,
+            style: TextStyle(color: AppColors.textMuted)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Close',
+                style: TextStyle(color: AppColors.textMuted)),
+          ),
+          if (showSettings)
+            TextButton(
+              onPressed: () {
+                voice.openSettings();
+                Navigator.pop(ctx);
+              },
+              child: const Text('Open Settings',
+                  style: TextStyle(color: AppColors.accentGreen)),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _VoiceTile extends StatelessWidget {
@@ -1006,9 +1097,9 @@ class _VoiceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      title: Text(name, style: const TextStyle(color: Colors.white)),
+      title: Text(name, style: TextStyle(color: AppColors.textPrimary)),
       subtitle: Text(detail,
-          style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+          style: TextStyle(color: AppColors.textDim, fontSize: 12)),
       trailing: isSelected
           ? const Icon(Icons.check, color: AppColors.accentGreen, size: 18)
           : null,
@@ -1038,7 +1129,7 @@ class _ModelParamsCard extends ConsumerWidget {
           // Temperature
           Row(
             children: [
-              const Icon(Icons.thermostat_outlined,
+              Icon(Icons.thermostat_outlined,
                   size: 16, color: AppColors.textMuted),
               const SizedBox(width: 8),
               Expanded(
@@ -1061,12 +1152,12 @@ class _ModelParamsCard extends ConsumerWidget {
             },
           ),
 
-          const Divider(height: 8, color: AppColors.borderDefault),
+          Divider(height: 8, color: AppColors.borderDefault),
 
           // Top-P
           Row(
             children: [
-              const Icon(Icons.filter_alt_outlined,
+              Icon(Icons.filter_alt_outlined,
                   size: 16, color: AppColors.textMuted),
               const SizedBox(width: 8),
               Expanded(child: Text('Top-P', style: AppTypography.modelName)),
@@ -1087,12 +1178,12 @@ class _ModelParamsCard extends ConsumerWidget {
             },
           ),
 
-          const Divider(height: 8, color: AppColors.borderDefault),
+          Divider(height: 8, color: AppColors.borderDefault),
 
           // Max tokens
           Row(
             children: [
-              const Icon(Icons.format_list_numbered_outlined,
+              Icon(Icons.format_list_numbered_outlined,
                   size: 16, color: AppColors.textMuted),
               const SizedBox(width: 8),
               Expanded(
@@ -1114,12 +1205,12 @@ class _ModelParamsCard extends ConsumerWidget {
             },
           ),
 
-          const Divider(height: 8, color: AppColors.borderDefault),
+          Divider(height: 8, color: AppColors.borderDefault),
 
           // Streaming TTS
           Row(
             children: [
-              const Icon(Icons.record_voice_over_outlined,
+              Icon(Icons.record_voice_over_outlined,
                   size: 16, color: AppColors.textMuted),
               const SizedBox(width: 12),
               Expanded(
@@ -1162,7 +1253,7 @@ class _ICloudSyncCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.cloud_outlined, size: 18, color: AppColors.textMuted),
+              Icon(Icons.cloud_outlined, size: 18, color: AppColors.textMuted),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1186,7 +1277,7 @@ class _ICloudSyncCard extends ConsumerWidget {
             ],
           ),
           if (enabled) ...[
-            const Divider(height: 16, color: AppColors.borderDefault),
+            Divider(height: 16, color: AppColors.borderDefault),
             Text(
               '⚠ iCloud sync requires the iCloud capability and App Groups '
               'entitlement to be configured in Xcode with a paid Apple Developer '

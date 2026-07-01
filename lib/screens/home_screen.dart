@@ -374,13 +374,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text('Re-answer with…',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.w600)),
               ),
@@ -390,10 +390,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 leading: Icon(_iconData(m.family),
                     color: _iconColor(m.family), size: 22),
                 title: Text(m.displayName,
-                    style: const TextStyle(color: Colors.white)),
+                    style: TextStyle(color: AppColors.textPrimary)),
                 subtitle: Text(
                     '${m.parametersBillions}B · ${m.quant.label}',
-                    style: const TextStyle(color: AppColors.textDim, fontSize: 12)),
+                    style: TextStyle(color: AppColors.textDim, fontSize: 12)),
                 trailing: m.id == active?.id
                     ? const Icon(Icons.check, color: AppColors.accentGreen, size: 18)
                     : null,
@@ -607,7 +607,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(
                       children: [
-                        const Icon(Icons.fiber_manual_record,
+                        Icon(Icons.fiber_manual_record,
                             size: 6, color: AppColors.textMuted),
                         const SizedBox(width: 8),
                         Text('${m.displayName} — ${m.sizeLabel}',
@@ -873,8 +873,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (_) => StatefulBuilder(
         builder: (ctx, setDlgState) => AlertDialog(
           backgroundColor: AppColors.surfaceOverlay,
-          title: const Text('Generate Image',
-              style: TextStyle(color: Colors.white)),
+          title: Text('Generate Image',
+              style: TextStyle(color: AppColors.textPrimary)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -901,7 +901,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     onChanged: (v) =>
                         setDlgState(() => variations = v ?? false),
                   ),
-                  const Text('Generate 4 variations',
+                  Text('Generate 4 variations',
                       style: TextStyle(color: AppColors.textMuted,
                           fontSize: 13)),
                 ],
@@ -1058,8 +1058,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surfaceOverlay,
-        title: const Text('Generate Video',
-            style: TextStyle(color: Colors.white)),
+        title: Text('Generate Video',
+            style: TextStyle(color: AppColors.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1277,7 +1277,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Edit message',
+            Text('Edit message',
                 style: TextStyle(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -1293,11 +1293,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 fillColor: AppColors.surfaceBase,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.borderDefault),
+                  borderSide: BorderSide(color: AppColors.borderDefault),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.borderDefault),
+                  borderSide: BorderSide(color: AppColors.borderDefault),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -1465,7 +1465,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             SizedBox(
               width: 280,
               child: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.surfaceSidebar,
                   border: Border(right: BorderSide(color: AppColors.borderDefault)),
                 ),
@@ -1564,7 +1564,7 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
             const SizedBox(width: 3),
-            const Icon(Icons.expand_more, size: 16, color: AppColors.textMuted),
+            Icon(Icons.expand_more, size: 16, color: AppColors.textMuted),
           ],
         ),
       ),
@@ -1868,7 +1868,7 @@ class _WelcomeView extends StatelessWidget {
               color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.memory,
+            child: Icon(Icons.memory,
                 color: AppColors.surfaceSidebar, size: 30),
           ),
           const SizedBox(height: 20),

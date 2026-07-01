@@ -172,7 +172,7 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
     ref.listen(messagesProvider, (_, messages) => _onMessagesUpdate(messages));
 
     return Scaffold(
-      backgroundColor: const Color(0xF00A0F1A),
+      backgroundColor: const Color(0xFF0A0F1A),
       body: SafeArea(
         child: Column(
           children: [

@@ -360,7 +360,7 @@ class _HowItWorksCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.info_outline,
+              Icon(Icons.info_outline,
                   color: AppColors.textMuted, size: 16),
               const SizedBox(width: 8),
               Text('How it works', style: AppTypography.modelName),

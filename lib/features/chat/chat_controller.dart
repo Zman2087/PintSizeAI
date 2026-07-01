@@ -68,6 +68,9 @@ class ChatController extends StateNotifier<ChatState> {
   /// Model id whose load most recently failed — skip auto-reloading it.
   String? _lastLoadFailedModelId;
 
+  /// Monotonic generation counter; bumped to invalidate in-flight streams.
+  int _genSeq = 0;
+
   // Debounced local persistence — keeps disk writes off the hot path.
   Timer? _localSaveTimer;
   bool _restored = false;
@@ -213,7 +216,9 @@ class ChatController extends StateNotifier<ChatState> {
     if (state.activeSession == null) newChat();
 
     var runner = _ref.read(llamaRunnerProvider);
-    if (runner.status != LlamaStatus.ready) {
+    if (runner.status == LlamaStatus.ready) {
+      _lastLoadFailedModelId = null; // a model is loaded fine; reset failure memory
+    } else {
       // The model may have been evicted under memory pressure (e.g. iOS freed
       // it while the app was backgrounded). Try to silently reload it — but not
       // one whose load just failed (avoids a retry loop on a broken model).
@@ -232,6 +237,7 @@ class ChatController extends StateNotifier<ChatState> {
         );
         return;
       }
+      _lastLoadFailedModelId = null; // reload succeeded
     }
 
     // 1. Add user message (show displayText to the user, send full text to LLM)
@@ -271,11 +277,14 @@ class ChatController extends StateNotifier<ChatState> {
     final genStart = DateTime.now();
     var tokenCount = 0;
     var finished = false;
+    // Sequence token: if stopGeneration() (or a newer send) bumps this, any
+    // late stream events from this call are ignored — prevents double-finalize.
+    final mySeq = ++_genSeq;
 
     // Finalises the response exactly once: strips any chat-template stop marker,
     // updates the message, persists, and speaks (if enabled).
     void finalize(String raw) {
-      if (finished) return;
+      if (finished || _genSeq != mySeq) return;
       finished = true;
 
       // Cut at the earliest stop marker the model may have emitted.
@@ -320,7 +329,7 @@ class ChatController extends StateNotifier<ChatState> {
         temperature: temperature, topP: topP, maxTokens: maxTok,
         imageBytes: imageBytes).listen(
         (token) {
-          if (finished) return;
+          if (finished || _genSeq != mySeq) return;
           tokenCount++;
           buffer.write(token);
           final current = buffer.toString();
@@ -421,6 +430,16 @@ class ChatController extends StateNotifier<ChatState> {
     final idx = session.messages.indexWhere((m) => m.id == messageId);
     if (idx < 0) return;
 
+    // Preserve any attached image so a vision turn isn't answered "blind".
+    final original = session.messages[idx];
+    Uint8List? imageBytes;
+    for (final a in original.attachments) {
+      if (a.isImage && a.thumbnailBytes != null) {
+        imageBytes = a.thumbnailBytes;
+        break;
+      }
+    }
+
     // Truncate history from that message onward, replace content
     final updated = session.messages.sublist(0, idx);
     final newSession = ChatSession(
@@ -428,6 +447,9 @@ class ChatController extends StateNotifier<ChatState> {
       createdAt: session.createdAt,
       title: session.title,
       modelId: session.modelId,
+      pinned: session.pinned,
+      branchedFromSessionId: session.branchedFromSessionId,
+      branchedAtMessageIndex: session.branchedAtMessageIndex,
       messages: updated,
     );
     state = state.copyWith(
@@ -435,7 +457,8 @@ class ChatController extends StateNotifier<ChatState> {
           .map((s) => s.id == session.id ? newSession : s)
           .toList(),
     );
-    await send(newContent);
+    await send(newContent,
+        attachments: original.attachments, imageBytes: imageBytes);
   }
 
   /// Re-answers the most recent user prompt using [model], loading it first.
@@ -489,9 +512,11 @@ class ChatController extends StateNotifier<ChatState> {
   }
 
   void stopGeneration() {
+    _genSeq++; // invalidate any in-flight finalize/token callbacks
     _ref.read(llamaRunnerProvider).cancelGeneration();
     _tokenSub?.cancel();
     _tokenSub = null;
+    _ref.read(voiceServiceProvider).stopSpeaking();
     _updateLastAssistantMessage(
       _lastAssistantContent(),
       isStreaming: false,
@@ -855,9 +880,9 @@ class ChatController extends StateNotifier<ChatState> {
         '<|im_start|>assistant\n';
   }
 
+  int _uidCounter = 0;
   String _uid() =>
-      DateTime.now().microsecondsSinceEpoch.toString() +
-      (DateTime.now().millisecond % 1000).toString();
+      '${DateTime.now().microsecondsSinceEpoch}_${_uidCounter++}';
 
   @override
   void dispose() {

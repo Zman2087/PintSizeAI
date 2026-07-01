@@ -128,7 +128,7 @@ class _ModelDetailSheet extends ConsumerWidget {
                           border: Border.all(color: AppColors.borderDefault),
                         ),
                         child: Text(c,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 color: AppColors.textMuted, fontSize: 12)),
                       )),
                 ],
@@ -194,7 +194,7 @@ class _ModelDetailSheet extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.phone_iphone,
+                    Icon(Icons.phone_iphone,
                         size: 18, color: AppColors.textMuted),
                     const SizedBox(width: 10),
                     Expanded(
@@ -281,9 +281,9 @@ class _ModelDetailSheet extends ConsumerWidget {
         context: context,
         builder: (_) => AlertDialog(
           backgroundColor: AppColors.surfaceOverlay,
-          title: const Text('Too big for your device',
+          title: Text('Too big for your device',
               style: TextStyle(color: AppColors.textPrimary)),
-          content: const Text(
+          content: Text(
             'This model likely needs more memory than your iPhone can give an '
             'app, so it may fail to load or crash. Download anyway?',
             style: TextStyle(color: AppColors.textMuted),

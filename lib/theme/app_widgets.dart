@@ -207,7 +207,7 @@ class UserMessage extends StatelessWidget {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.copy_outlined,
+              leading: Icon(Icons.copy_outlined,
                   color: AppColors.textMuted),
               title: const Text('Copy'),
               onTap: () {
@@ -218,7 +218,7 @@ class UserMessage extends StatelessWidget {
             ),
             if (onEdit != null)
               ListTile(
-                leading: const Icon(Icons.edit_outlined,
+                leading: Icon(Icons.edit_outlined,
                     color: AppColors.textMuted),
                 title: const Text('Edit & Resend'),
                 onTap: () {
@@ -512,7 +512,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
                     child: Container(
                       width: 6,
                       height: 6,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppColors.textDim,
                         shape: BoxShape.circle,
                       ),
@@ -680,7 +680,7 @@ class ChatInputBox extends StatelessWidget {
                               : AppColors.textMuted),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   // Mic button — pulses red while listening
                   GestureDetector(
                     onTap: onToggleVoice,
@@ -688,11 +688,11 @@ class ChatInputBox extends StatelessWidget {
                       isListening ? Icons.mic : Icons.mic_none_outlined,
                       size: 20,
                       color: isListening
-                          ? const Color(0xFFEF4444)
+                          ? Color(0xFFEF4444)
                           : AppColors.textMuted,
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
+                  SizedBox(width: AppSpacing.sm),
                   isGenerating
                       ? _StopButton(onTap: onStop)
                       : _SendButton(onTap: onSend),
@@ -710,7 +710,7 @@ class ChatInputBox extends StatelessWidget {
 /// Images → actual thumbnail. Videos → dark frame with play icon.
 /// Files → pill chip.
 class _PendingAttachmentPreview extends StatelessWidget {
-  const _PendingAttachmentPreview({
+  _PendingAttachmentPreview({
     required this.attachment,
     required this.onRemove,
   });
@@ -730,7 +730,7 @@ class _PendingAttachmentPreview extends StatelessWidget {
 }
 
 class _ImagePreview extends StatelessWidget {
-  const _ImagePreview({required this.attachment, required this.onRemove});
+  _ImagePreview({required this.attachment, required this.onRemove});
   final ChatAttachment attachment;
   final VoidCallback onRemove;
 
@@ -742,9 +742,9 @@ class _ImagePreview extends StatelessWidget {
     } else if (attachment.localPath != null) {
       image = Image.network(attachment.localPath!, fit: BoxFit.cover,
           errorBuilder: (_, __, ___) =>
-              const Icon(Icons.image_outlined, color: AppColors.textMuted));
+              Icon(Icons.image_outlined, color: AppColors.textMuted));
     } else {
-      image = const Icon(Icons.image_outlined, color: AppColors.textMuted);
+      image = Icon(Icons.image_outlined, color: AppColors.textMuted);
     }
 
     return Stack(
@@ -762,11 +762,11 @@ class _ImagePreview extends StatelessWidget {
             child: Container(
               width: 20,
               height: 20,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.surfaceBase,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.close, size: 13, color: AppColors.textPrimary),
+              child: Icon(Icons.close, size: 13, color: AppColors.textPrimary),
             ),
           ),
         ),
@@ -803,7 +803,7 @@ class _VideoPreview extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
                   attachment.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 9, color: AppColors.textMuted),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
@@ -821,11 +821,11 @@ class _VideoPreview extends StatelessWidget {
             child: Container(
               width: 20,
               height: 20,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.surfaceBase,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.close, size: 13, color: AppColors.textPrimary),
+              child: Icon(Icons.close, size: 13, color: AppColors.textPrimary),
             ),
           ),
         ),
@@ -851,7 +851,7 @@ class _FileChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.attach_file, size: 12, color: AppColors.textMuted),
+          Icon(Icons.attach_file, size: 12, color: AppColors.textMuted),
           const SizedBox(width: 4),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 100),
@@ -864,7 +864,7 @@ class _FileChip extends StatelessWidget {
           const SizedBox(width: 4),
           GestureDetector(
             onTap: onRemove,
-            child: const Icon(Icons.close, size: 12, color: AppColors.textMuted),
+            child: Icon(Icons.close, size: 12, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -905,7 +905,7 @@ class _SendButton extends StatelessWidget {
           color: AppColors.white,
           borderRadius: AppRadius.button,
         ),
-        child: const Icon(Icons.arrow_upward, size: 17, color: AppColors.surfaceSidebar),
+        child: Icon(Icons.arrow_upward, size: 17, color: AppColors.surfaceSidebar),
       ),
     );
   }
@@ -928,7 +928,7 @@ class _StopButton extends StatelessWidget {
           borderRadius: AppRadius.button,
           border: Border.all(color: AppColors.textDim, width: 1.5),
         ),
-        child: const Icon(Icons.stop, size: 14, color: AppColors.textPrimary),
+        child: Icon(Icons.stop, size: 14, color: AppColors.textPrimary),
       ),
     );
   }
@@ -963,7 +963,7 @@ class ModelPill extends StatelessWidget {
           const SizedBox(width: 6),
           Text(modelName, style: AppTypography.navTitle),
           const SizedBox(width: 3),
-          const Icon(Icons.expand_more, size: 16, color: AppColors.textMuted),
+          Icon(Icons.expand_more, size: 16, color: AppColors.textMuted),
         ],
       ),
     );

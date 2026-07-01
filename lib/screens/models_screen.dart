@@ -8,6 +8,8 @@ import '../features/models/huggingface_service.dart';
 import '../features/models/model_download_service.dart';
 import '../features/models/model_fit.dart';
 import '../features/models/model_providers.dart';
+import '../features/image_gen/image_gen_providers.dart';
+import '../features/image_gen/sd_model_catalogue.dart';
 import '../theme/theme.dart';
 import 'model_detail_sheet.dart';
 
@@ -23,7 +25,7 @@ class ModelsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         backgroundColor: AppColors.surfaceBase,
         appBar: AppBar(
@@ -31,7 +33,9 @@ class ModelsScreen extends ConsumerWidget {
           elevation: 0,
           scrolledUnderElevation: 0,
           title: const Text('Models'),
-          bottom: const TabBar(
+          bottom: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             labelColor: AppColors.textPrimary,
             unselectedLabelColor: AppColors.textMuted,
             indicatorColor: AppColors.textPrimary,
@@ -41,6 +45,7 @@ class ModelsScreen extends ConsumerWidget {
               Tab(text: 'On device'),
               Tab(text: 'Recommended'),
               Tab(text: 'Discover'),
+              Tab(text: 'Image models'),
             ],
           ),
         ),
@@ -49,6 +54,7 @@ class ModelsScreen extends ConsumerWidget {
             _OnDeviceTab(),
             _RecommendedTab(),
             _DiscoverTab(),
+            _ImageModelsTab(),
           ],
         ),
       ),
@@ -75,7 +81,7 @@ class _ModelRow extends ConsumerWidget {
       onTap: () => showModelDetail(context, model),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: AppColors.borderSubtle)),
         ),
         child: Column(
@@ -85,13 +91,13 @@ class _ModelRow extends ConsumerWidget {
               children: [
                 Expanded(
                   child: Text(model.displayName,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.w600)),
                 ),
                 if (isActive)
-                  const _Pill(text: 'Active', color: AppColors.textPrimary)
+                  _Pill(text: 'Active', color: AppColors.textPrimary)
                 else
                   _StatusAction(model: model, dl: dl),
               ],
@@ -100,18 +106,39 @@ class _ModelRow extends ConsumerWidget {
             Text(
               '${_paramLabel(model)}${model.quant.label} · '
               '${model.fileSizeGb.toStringAsFixed(model.fileSizeGb < 1 ? 2 : 1)} GB',
-              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                if (fit != null) _FitChip(fit: fit),
-                ...caps.map((c) => _CapChip(label: c)),
-              ],
-            ),
+            if (dl.status == DownloadStatus.downloading) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: dl.totalBytes > 0 ? dl.progress : null,
+                  minHeight: 4,
+                  backgroundColor: AppColors.surfaceActive,
+                  valueColor: const AlwaysStoppedAnimation(AppColors.accentGreen),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                dl.totalBytes > 0
+                    ? 'Downloading… ${(dl.progress * 100).toInt()}%  ·  '
+                        '${(dl.receivedBytes / 1e6).toStringAsFixed(0)} / ${(dl.totalBytes / 1e6).toStringAsFixed(0)} MB'
+                    : 'Downloading…',
+                style: TextStyle(color: AppColors.textDim, fontSize: 11),
+              ),
+            ] else ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (fit != null) _FitChip(fit: fit),
+                  ...caps.map((c) => _CapChip(label: c)),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -133,7 +160,7 @@ class _StatusAction extends ConsumerWidget {
       case DownloadStatus.downloading:
         final pct = dl.totalBytes > 0 ? ' ${(dl.progress * 100).toInt()}%' : '';
         return Text('Downloading$pct',
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 12));
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12));
       case DownloadStatus.downloaded:
         return _MonoButton(
           label: 'Load',
@@ -150,7 +177,7 @@ class _StatusAction extends ConsumerWidget {
           },
         );
       default:
-        return const Icon(Icons.chevron_right,
+        return Icon(Icons.chevron_right,
             size: 18, color: AppColors.textDim);
     }
   }
@@ -168,12 +195,16 @@ class _OnDeviceTab extends ConsumerWidget {
     final ranked = ref.watch(rankedModelsProvider).valueOrNull ?? [];
     final active = ref.watch(activeModelProvider);
 
-    // Installed = has a downloaded file, or is the active model.
+    // On device = downloaded, currently downloading, or the active model — so
+    // in-progress downloads are trackable here with a live progress bar.
     final installed = ranked
         .map((p) => p.model)
-        .where((m) =>
-            downloads[m.id]?.status == DownloadStatus.downloaded ||
-            m.id == active?.id)
+        .where((m) {
+          final s = downloads[m.id]?.status;
+          return s == DownloadStatus.downloaded ||
+              s == DownloadStatus.downloading ||
+              m.id == active?.id;
+        })
         .toList();
 
     if (installed.isEmpty) {
@@ -204,7 +235,7 @@ class _OnDeviceTab extends ConsumerWidget {
             },
             child: _ModelRow(model: m, profile: profile),
           ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.all(16),
           child: Text('Swipe a model left to delete it and free up space.',
               style: TextStyle(color: AppColors.textDim, fontSize: 12)),
@@ -218,10 +249,10 @@ class _OnDeviceTab extends ConsumerWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surfaceOverlay,
-        title: const Text('Delete model?',
+        title: Text('Delete model?',
             style: TextStyle(color: AppColors.textPrimary)),
         content: Text('Remove "$name" from this device to free up storage?',
-            style: const TextStyle(color: AppColors.textMuted)),
+            style: TextStyle(color: AppColors.textMuted)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -309,11 +340,11 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
             controller: _searchCtrl,
             textInputAction: TextInputAction.search,
             onSubmitted: (_) => _run(),
-            style: const TextStyle(color: AppColors.textPrimary),
+            style: TextStyle(color: AppColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Search Hugging Face…',
-              hintStyle: const TextStyle(color: AppColors.textDim),
-              prefixIcon: const Icon(Icons.search, color: AppColors.textDim, size: 20),
+              hintStyle: TextStyle(color: AppColors.textDim),
+              prefixIcon: Icon(Icons.search, color: AppColors.textDim, size: 20),
               filled: true,
               fillColor: AppColors.surfaceOverlay,
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -366,7 +397,7 @@ class _HFRepoRow extends ConsumerWidget {
       onTap: () => _showQuants(context, ref),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: AppColors.borderSubtle)),
         ),
         child: Column(
@@ -378,19 +409,19 @@ class _HFRepoRow extends ConsumerWidget {
                   child: Text(repo.displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.w600)),
                 ),
-                const Icon(Icons.chevron_right, size: 18, color: AppColors.textDim),
+                Icon(Icons.chevron_right, size: 18, color: AppColors.textDim),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               '${repo.owner}  ·  ${_fmt(repo.downloads)} downloads'
               '${updated.isNotEmpty ? '  ·  updated $updated' : ''}',
-              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -449,9 +480,9 @@ class _QuantSheetState extends ConsumerState<_QuantSheet> {
         context: context,
         builder: (_) => AlertDialog(
           backgroundColor: AppColors.surfaceOverlay,
-          title: const Text('Too big for your device',
+          title: Text('Too big for your device',
               style: TextStyle(color: AppColors.textPrimary)),
-          content: const Text(
+          content: Text(
             'This model likely needs more memory than your iPhone can give an '
             'app, so it may fail to load or crash. Download anyway?',
             style: TextStyle(color: AppColors.textMuted),
@@ -473,11 +504,32 @@ class _QuantSheetState extends ConsumerState<_QuantSheet> {
     await ref.read(customModelsProvider.notifier).add(model);
     ref.read(modelActionsProvider).download(model);
     if (mounted) {
-      Navigator.pop(context);
+      final tabs = DefaultTabController.maybeOf(context);
+      Navigator.pop(context); // close quant sheet
+      tabs?.animateTo(0); // jump to "On device" so progress is visible
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Downloading ${model.displayName}…')),
+        SnackBar(content: Text('Downloading ${model.displayName} — track it here in "On device".')),
       );
     }
+  }
+
+  static bool _isRecommendedQuant(String q) {
+    final u = q.toUpperCase();
+    return u == 'Q4_K_M' || u == 'Q4_K_S';
+  }
+
+  static String _quantPlainName(String q) {
+    final u = q.toUpperCase();
+    if (u.startsWith('Q2') || u.startsWith('IQ2')) return 'Smallest (lowest quality)';
+    if (u.startsWith('Q3') || u.startsWith('IQ3')) return 'Small & fast';
+    if (u.startsWith('Q4') || u.startsWith('IQ4')) return 'Balanced';
+    if (u.startsWith('Q5')) return 'Higher quality';
+    if (u.startsWith('Q6')) return 'High quality (large)';
+    if (u.startsWith('Q8')) return 'Best quality (large)';
+    if (u.startsWith('F16') || u.startsWith('BF16') || u.startsWith('F32')) {
+      return 'Full precision (very large)';
+    }
+    return q;
   }
 
   @override
@@ -500,18 +552,21 @@ class _QuantSheetState extends ConsumerState<_QuantSheet> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 2),
                 child: Text(widget.repo.displayName,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.w700)),
               ),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
-                child: Text('Pick a version — smaller = faster & less memory.',
+                child: Text(
+                    'A "version" is how compressed the model is. Smaller = faster '
+                    'and less memory but slightly lower quality. Balanced is best '
+                    'for most phones.',
                     style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
               ),
               if (files.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.all(24),
                   child: Text('No compatible single-file GGUF versions found.',
                       textAlign: TextAlign.center,
@@ -521,35 +576,167 @@ class _QuantSheetState extends ConsumerState<_QuantSheet> {
                 Builder(builder: (_) {
                   final m = HuggingFaceService.toModelVariant(widget.repo, f);
                   final fit = profile == null ? null : deviceFit(m, profile);
+                  final recommended = _isRecommendedQuant(f.quantLabel);
                   return ListTile(
-                    title: Text(f.quantLabel,
-                        style: const TextStyle(color: AppColors.textPrimary)),
+                    title: Row(
+                      children: [
+                        Flexible(
+                          child: Text(_quantPlainName(f.quantLabel),
+                              style: TextStyle(color: AppColors.textPrimary)),
+                        ),
+                        if (recommended) ...[
+                          const SizedBox(width: 8),
+                          _Pill(text: 'Recommended', color: AppColors.accentGreen),
+                        ],
+                      ],
+                    ),
                     subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                      padding: EdgeInsets.only(top: 4),
                       child: Row(
                         children: [
-                          Text('${(f.sizeBytes / 1e9).toStringAsFixed(2)} GB',
-                              style: const TextStyle(
+                          Text('${f.quantLabel} · ${(f.sizeBytes / 1e9).toStringAsFixed(2)} GB',
+                              style: TextStyle(
                                   color: AppColors.textMuted, fontSize: 12)),
                           if (fit != null) ...[
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             _FitChip(fit: fit),
                           ],
                         ],
                       ),
                     ),
-                    trailing: const Icon(Icons.download_outlined,
+                    trailing: Icon(Icons.download_outlined,
                         color: AppColors.textPrimary, size: 20),
                     onTap: () => _pick(f),
                   );
                 }),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
             ],
           );
         },
       ),
     );
   }
+}
+
+// ── Image models (Stable Diffusion) ─────────────────────────────────────────
+
+class _ImageModelsTab extends ConsumerWidget {
+  const _ImageModelsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(sdModelProvider);
+    return ListView(
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(18, 14, 18, 4),
+          child: Text('Image generation models',
+              style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600)),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(18, 0, 18, 8),
+          child: Text(
+              'On-device Stable Diffusion — create images from text, fully offline.',
+              style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+        ),
+        for (final m in kSDModelCatalogue) _SDModelRow(model: m, status: status),
+      ],
+    );
+  }
+}
+
+class _SDModelRow extends ConsumerWidget {
+  _SDModelRow({required this.model, required this.status});
+  final SDModel model;
+  final SDModelStatus status;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isThis = status.loadedModelId == model.id;
+    final notifier = ref.read(sdModelProvider.notifier);
+
+    Widget action;
+    Widget? progress;
+    if (isThis) {
+      switch (status.state) {
+        case SDModelState.downloading:
+          progress = _sdProgress('Downloading', status.downloadProgress);
+          action = const SizedBox.shrink();
+        case SDModelState.extracting:
+          progress = _sdProgress('Extracting', null);
+          action = const SizedBox.shrink();
+        case SDModelState.ready:
+          action = _MonoButton(label: 'Load', onTap: () => notifier.loadModel(model));
+        case SDModelState.loading:
+          action = const SizedBox(
+              width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2));
+        case SDModelState.loaded:
+          action = _Pill(text: 'Active', color: AppColors.textPrimary);
+        case SDModelState.error:
+          action = _MonoButton(label: 'Retry', onTap: () => notifier.download(model));
+        default:
+          action = _MonoButton(label: 'Download', onTap: () => notifier.download(model));
+      }
+    } else {
+      action = _MonoButton(label: 'Download', onTap: () => notifier.download(model));
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.borderSubtle)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(model.displayName,
+                    style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600)),
+              ),
+              action,
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('${model.sizeLabel} · needs ${model.minRamGb}GB RAM · ${model.minIphone}+',
+              style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+          const SizedBox(height: 8),
+          Text(model.description,
+              style: TextStyle(color: AppColors.textDim, fontSize: 12, height: 1.35)),
+          if (progress != null) ...[const SizedBox(height: 10), progress],
+        ],
+      ),
+    );
+  }
+
+  Widget _sdProgress(String label, double? value) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: value != null && value > 0 ? value : null,
+              minHeight: 4,
+              backgroundColor: AppColors.surfaceActive,
+              valueColor: const AlwaysStoppedAnimation(AppColors.accentGreen),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value != null && value > 0
+                ? '$label… ${(value * 100).toInt()}%'
+                : '$label…',
+            style: TextStyle(color: AppColors.textDim, fontSize: 11),
+          ),
+        ],
+      );
 }
 
 // ── Small shared widgets ────────────────────────────────────────────────────
@@ -582,7 +769,7 @@ class _CapChip extends StatelessWidget {
           border: Border.all(color: AppColors.borderDefault),
         ),
         child: Text(label,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+            style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
       );
 }
 
@@ -617,7 +804,7 @@ class _MonoButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.surfaceBase,
                   fontSize: 13,
                   fontWeight: FontWeight.w600)),
@@ -640,7 +827,7 @@ class _Empty extends StatelessWidget {
               const SizedBox(height: 12),
               Text(text,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
             ],
           ),
         ),

@@ -50,15 +50,24 @@ class PintSizeAiApp extends StatelessWidget {
     return MaterialApp(
       title: 'PintSizeAi',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
       builder: (context, child) {
+        // Resolve adaptive AppColors tokens from the system appearance so the
+        // whole widget tree (which reads AppColors directly) matches the theme.
+        final isDark =
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+        AppColors.brightness = isDark ? Brightness.dark : Brightness.light;
         SystemChrome.setSystemUIOverlayStyle(
-          const SystemUiOverlayStyle(
+          SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.light,
-            statusBarBrightness: Brightness.dark,
+            statusBarIconBrightness:
+                isDark ? Brightness.light : Brightness.dark,
+            statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
             systemNavigationBarColor: AppColors.surfaceBase,
-            systemNavigationBarIconBrightness: Brightness.light,
+            systemNavigationBarIconBrightness:
+                isDark ? Brightness.light : Brightness.dark,
           ),
         );
         return child ?? const SizedBox.shrink();
@@ -77,7 +86,7 @@ class _RootGate extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(onboardingStatusProvider);
     return status.when(
-      loading: () => const Scaffold(
+      loading: () => Scaffold(
         backgroundColor: AppColors.surfaceBase,
         body: Center(child: CircularProgressIndicator()),
       ),

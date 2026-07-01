@@ -67,6 +67,7 @@ class VoiceService {
           name: m['name'] as String? ?? 'Voice',
           lang: m['lang'] as String? ?? '',
           quality: m['quality'] as String? ?? 'Standard',
+          isPersonal: m['isPersonal'] as bool? ?? false,
         );
       }).toList();
     } catch (_) {
@@ -77,6 +78,18 @@ class VoiceService {
   /// Selects a voice by identifier. Pass null/empty to use the system default.
   Future<void> setVoice(String? voiceId) =>
       _method.invokeMethod<void>('setVoice', voiceId ?? '');
+
+  /// Current Personal Voice authorization: authorized/denied/notDetermined/
+  /// unsupported.
+  Future<String> personalVoiceStatus() async =>
+      await _method.invokeMethod<String>('personalVoiceStatus') ?? 'unsupported';
+
+  /// Prompts the user to allow this app to use their Personal Voice.
+  Future<String> requestPersonalVoice() async =>
+      await _method.invokeMethod<String>('requestPersonalVoice') ?? 'unsupported';
+
+  /// Opens the iOS Settings app (to create a Personal Voice under Accessibility).
+  Future<void> openSettings() => _method.invokeMethod<void>('openSettings');
 
   void dispose() {
     _sub?.cancel();
@@ -91,11 +104,13 @@ class VoiceOption {
     required this.name,
     required this.lang,
     required this.quality,
+    this.isPersonal = false,
   });
   final String id;
   final String name;
   final String lang;
   final String quality;
+  final bool isPersonal;
 }
 
 // ── Event types ───────────────────────────────────────────────────────────────
