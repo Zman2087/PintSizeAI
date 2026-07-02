@@ -2,9 +2,9 @@
 // Run with: flutter test test/features/llm/
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mypocketai/features/device_recommender/model_catalogue.dart';
-import 'package:mypocketai/features/llm/llama_runner.dart';
-import 'package:mypocketai/features/llm/llama_runner_mock.dart';
+import 'package:pintsize_ai/features/device_recommender/model_catalogue.dart';
+import 'package:pintsize_ai/features/llm/llama_runner.dart';
+import 'package:pintsize_ai/features/llm/llama_runner_mock.dart';
 
 const _testModel = ModelVariant(
   id: 'test-model',

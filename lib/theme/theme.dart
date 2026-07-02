@@ -1,7 +1,7 @@
 /// PocketLLM design system — barrel export.
 ///
 /// Import this single file anywhere in the app:
-///   import 'package:mypocketai/theme/theme.dart';
+///   import 'package:pintsize_ai/theme/theme.dart';
 ///
 /// Then reference tokens directly:
 ///   color: AppColors.textPrimary

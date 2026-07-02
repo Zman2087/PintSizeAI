@@ -669,27 +669,38 @@ class ChatInputBox extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   // Web search toggle
-                  GestureDetector(
-                    onTap: onToggleWebSearch,
-                    child: Tooltip(
-                      message: webSearchEnabled ? 'Web on' : 'Web off',
-                      child: Icon(Icons.language_outlined,
-                          size: 20,
-                          color: webSearchEnabled
-                              ? AppColors.accentGreen
-                              : AppColors.textMuted),
+                  Semantics(
+                    button: true,
+                    toggled: webSearchEnabled,
+                    label: webSearchEnabled
+                        ? 'Web search on'
+                        : 'Web search off',
+                    child: GestureDetector(
+                      onTap: onToggleWebSearch,
+                      child: Tooltip(
+                        message: webSearchEnabled ? 'Web on' : 'Web off',
+                        child: Icon(Icons.language_outlined,
+                            size: 20,
+                            color: webSearchEnabled
+                                ? AppColors.accentGreen
+                                : AppColors.textMuted),
+                      ),
                     ),
                   ),
                   SizedBox(width: 8),
                   // Mic button — pulses red while listening
-                  GestureDetector(
-                    onTap: onToggleVoice,
-                    child: Icon(
-                      isListening ? Icons.mic : Icons.mic_none_outlined,
-                      size: 20,
-                      color: isListening
-                          ? Color(0xFFEF4444)
-                          : AppColors.textMuted,
+                  Semantics(
+                    button: true,
+                    label: isListening ? 'Stop listening' : 'Speak your message',
+                    child: GestureDetector(
+                      onTap: onToggleVoice,
+                      child: Icon(
+                        isListening ? Icons.mic : Icons.mic_none_outlined,
+                        size: 20,
+                        color: isListening
+                            ? Color(0xFFEF4444)
+                            : AppColors.textMuted,
+                      ),
                     ),
                   ),
                   SizedBox(width: AppSpacing.sm),
@@ -879,11 +890,15 @@ class _InputIconBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Icon(icon, size: 20, color: AppColors.textDim),
+    return Semantics(
+      button: true,
+      label: 'Add attachment',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(icon, size: 20, color: AppColors.textDim),
+        ),
       ),
     );
   }
@@ -896,16 +911,20 @@ class _SendButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: AppRadius.button,
+    return Semantics(
+      button: true,
+      label: 'Send message',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: AppRadius.button,
+          ),
+          child: Icon(Icons.arrow_upward, size: 17, color: AppColors.surfaceSidebar),
         ),
-        child: Icon(Icons.arrow_upward, size: 17, color: AppColors.surfaceSidebar),
       ),
     );
   }
@@ -918,7 +937,10 @@ class _StopButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      label: 'Stop generating',
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         width: 30,
@@ -929,6 +951,7 @@ class _StopButton extends StatelessWidget {
           border: Border.all(color: AppColors.textDim, width: 1.5),
         ),
         child: Icon(Icons.stop, size: 14, color: AppColors.textPrimary),
+      ),
       ),
     );
   }

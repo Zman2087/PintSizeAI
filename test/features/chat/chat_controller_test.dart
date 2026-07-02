@@ -1,16 +1,20 @@
-// Tests for ChatController — pure Dart, no Flutter or platform channels.
+// Tests for ChatController. send() touches platform plugins (voice, storage),
+// so we mock those channels below.
 // Run with: flutter test test/features/chat/
 
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mypocketai/features/chat/chat_message.dart';
-import 'package:mypocketai/features/chat/chat_providers.dart';
-import 'package:mypocketai/features/device_recommender/model_catalogue.dart';
-import 'package:mypocketai/features/llm/llama_runner.dart';
-import 'package:mypocketai/features/llm/llama_runner_mock.dart';
-import 'package:mypocketai/features/llm/llm_providers.dart';
-import 'package:mypocketai/features/models/model_providers.dart';
-import 'package:mypocketai/features/siri/siri_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pintsize_ai/features/chat/chat_message.dart';
+import 'package:pintsize_ai/features/chat/chat_providers.dart';
+import 'package:pintsize_ai/features/device_recommender/model_catalogue.dart';
+import 'package:pintsize_ai/features/llm/llama_runner.dart';
+import 'package:pintsize_ai/features/llm/llama_runner_mock.dart';
+import 'package:pintsize_ai/features/llm/llm_providers.dart';
+import 'package:pintsize_ai/features/models/model_providers.dart';
+import 'package:pintsize_ai/features/siri/siri_service.dart';
 
 const _testModel = ModelVariant(
   id: 'llama32-3b-q4km',
@@ -49,6 +53,29 @@ Future<ProviderContainer> _makeContainer() async {
 }
 
 void main() {
+  // A fresh temp dir per test isolates the on-disk chat persistence.
+  late String tmpDir;
+
+  setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    void mock(String name, [Object? Function(MethodCall)? handler]) {
+      messenger.setMockMethodCallHandler(
+          MethodChannel(name), (call) async => handler?.call(call));
+    }
+
+    mock('pintsize/voice');
+    mock('pintsize/voice_text');
+    mock('pintsize/llama');
+    mock('plugins.flutter.io/path_provider', (call) => tmpDir);
+  });
+
+  setUp(() {
+    tmpDir = Directory.systemTemp.createTempSync('pintsize_test').path;
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('ChatController — session management', () {
     test('starts with no sessions', () {
       final container = ProviderContainer(overrides: [

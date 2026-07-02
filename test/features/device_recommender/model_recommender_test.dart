@@ -4,9 +4,9 @@
 // Run with: flutter test test/features/device_recommender/
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mypocketai/features/device_recommender/device_profile.dart';
-import 'package:mypocketai/features/device_recommender/model_catalogue.dart';
-import 'package:mypocketai/features/device_recommender/model_recommender.dart';
+import 'package:pintsize_ai/features/device_recommender/device_profile.dart';
+import 'package:pintsize_ai/features/device_recommender/model_catalogue.dart';
+import 'package:pintsize_ai/features/device_recommender/model_recommender.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

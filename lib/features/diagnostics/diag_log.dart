@@ -18,9 +18,24 @@ class DiagLog {
     return _file!;
   }
 
+  /// Keep the log bounded so it can never grow without limit on-device.
+  static const _maxBytes = 64 * 1024;
+
   static Future<void> log(String line) async {
     try {
       final f = await _resolve();
+      // Roll over if the file has grown past the cap.
+      if (await f.exists() && await f.length() > _maxBytes) {
+        try {
+          final tail = (await f.readAsString());
+          final keep = tail.length > _maxBytes ~/ 2
+              ? tail.substring(tail.length - _maxBytes ~/ 2)
+              : tail;
+          await f.writeAsString(keep);
+        } catch (_) {
+          await f.writeAsString('');
+        }
+      }
       final ts = DateTime.now().toIso8601String();
       await f.writeAsString('$ts  $line\n', mode: FileMode.append, flush: true);
     } catch (_) {
