@@ -74,6 +74,17 @@ class ModelDownloadService {
   Future<void> download(String modelId, String url) async {
     if (_tokens.containsKey(modelId)) return; // already in flight
 
+    // Model weights must come over HTTPS — catalogue and Hugging Face URLs
+    // always are, so anything else indicates a tampered/malformed source.
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.scheme != 'https') {
+      _emit(modelId, const DownloadState(
+        status: DownloadStatus.error,
+        error: 'Invalid download URL (must be https).',
+      ));
+      return;
+    }
+
     final path = await _storage.modelPath(modelId);
     final token = CancelToken();
     _tokens[modelId] = token;

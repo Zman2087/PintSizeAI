@@ -31,6 +31,17 @@ class _HtmlSandboxScreenState extends State<HtmlSandboxScreen> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
         onPageFinished: (_) => setState(() => _loading = false),
+        // Sandbox: the AI-generated document may render, but it must not be
+        // able to navigate the WebView anywhere else — no external sites,
+        // no file:// URLs, no custom URL schemes. Only the initial
+        // loadHtmlString document (about:blank / data:) is allowed.
+        onNavigationRequest: (request) {
+          final url = request.url.toLowerCase();
+          if (url.startsWith('about:') || url.startsWith('data:')) {
+            return NavigationDecision.navigate;
+          }
+          return NavigationDecision.prevent;
+        },
       ))
       ..loadHtmlString(_wrapHtml(widget.html));
   }

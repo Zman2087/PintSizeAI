@@ -71,20 +71,35 @@ const kSDModelCatalogue = [
     notes: 'Recommended for iPhone 14 or newer.',
   ),
   SDModel(
-    id: 'sd-mixedbit-palettized',
-    displayName: 'Stable Diffusion (Max Quality)',
+    id: 'sd-v2-base-palettized',
+    displayName: 'Stable Diffusion 2.0 (Compact)',
     description:
-        'Apple\'s mixed-bit palettized SD — the highest-quality on-device build. '
-        'Large (~6.7 GB) and slower; only for iPhone 15 Pro / 16 Pro-class '
-        'devices with 8 GB of memory.',
+        'The smallest, fastest option (~1.1 GB). Good for quick generations on '
+        'devices with less memory, with solid quality for its size.',
     downloadUrl:
-        'https://huggingface.co/apple/coreml-stable-diffusion-mixed-bit-palettization/resolve/main/'
-        'coreml-stable-diffusion-mixed-bit-palettization_original_compiled.zip',
-    totalSizeBytes: 7202181120, // ~6.7 GB
-    minRamGb: 8,
-    minIphone: 'iPhone 15 Pro',
+        'https://huggingface.co/apple/coreml-stable-diffusion-2-base-palettized/resolve/main/'
+        'coreml-stable-diffusion-2-base-palettized_split_einsum_v2_compiled.zip',
+    totalSizeBytes: 1224736768, // ~1.14 GB
+    minRamGb: 4,
+    minIphone: 'iPhone 12',
     stepsRecommended: 20,
-    strengths: ['Best detail', 'Fewer artefacts', 'High-end only'],
-    notes: 'Large download. Best on iPhone 15 Pro or newer with 8 GB RAM.',
+    strengths: ['Small & fast', 'Low memory', 'Quick previews'],
+    notes: 'The lightest model — best if storage or RAM is tight.',
+  ),
+  SDModel(
+    id: 'sd-v1-4-palettized',
+    displayName: 'Stable Diffusion 1.4',
+    description:
+        'The classic SD 1.4 base (~1.6 GB). A slightly different artistic '
+        'character to 1.5 — useful as an alternative style.',
+    downloadUrl:
+        'https://huggingface.co/apple/coreml-stable-diffusion-1-4-palettized/resolve/main/'
+        'coreml-stable-diffusion-1-4-palettized_split_einsum_v2_compiled.zip',
+    totalSizeBytes: 1685598208, // ~1.57 GB
+    minRamGb: 4,
+    minIphone: 'iPhone 12',
+    stepsRecommended: 20,
+    strengths: ['Artistic', 'Alternative style', 'Photorealistic'],
+    notes: 'A good stylistic alternative to Stable Diffusion 1.5.',
   ),
 ];

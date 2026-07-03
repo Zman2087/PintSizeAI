@@ -20,15 +20,21 @@ class ModelStorageService {
     return dir;
   }
 
+  /// Model ids come from the bundled catalogue, the remote catalogue JSON,
+  /// and Hugging Face imports. Neutralise path separators / traversal so an
+  /// id can never resolve to a file outside the models directory.
+  static String _safeId(String modelId) =>
+      modelId.replaceAll(RegExp(r'[/\\]'), '_').replaceAll('..', '_');
+
   Future<String> modelPath(String modelId) async {
     final dir = await _root();
-    return p.join(dir.path, '$modelId.gguf');
+    return p.join(dir.path, '${_safeId(modelId)}.gguf');
   }
 
   /// Path to a model's multimodal projector (mmproj) file, if it has one.
   Future<String> mmprojPath(String modelId) async {
     final dir = await _root();
-    return p.join(dir.path, '$modelId.mmproj.gguf');
+    return p.join(dir.path, '${_safeId(modelId)}.mmproj.gguf');
   }
 
   Future<bool> isMmprojDownloaded(String modelId) async {
