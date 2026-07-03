@@ -43,6 +43,10 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
   bool _awaitingResponse = false;
   String? _streamingMsgId;
   bool _spoken = false;
+  // True once the model has finished generating this turn's reply. Streaming
+  // TTS fires "speaking_done" between sentences, so we only relisten once
+  // generation is complete AND all queued speech has drained.
+  bool _genDone = false;
 
   // Settings we temporarily override so the AI always talks back in voice mode.
   bool _savedAutoSpeak = false;
@@ -56,12 +60,13 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
 
-    // Force the controller to speak the full response aloud while voice mode
-    // is open, then restore the user's preferences on exit.
+    // While voice mode is open, force the AI to speak — and stream it
+    // sentence-by-sentence so it starts talking within a second or two instead
+    // of waiting for the whole reply. Restore the user's prefs on exit.
     _savedAutoSpeak = ref.read(autoSpeakProvider);
     _savedStreamingTts = ref.read(streamingTtsProvider);
     ref.read(autoSpeakProvider.notifier).set(true);
-    ref.read(streamingTtsProvider.notifier).set(false);
+    ref.read(streamingTtsProvider.notifier).set(true);
 
     // Single persistent event subscription drives the whole loop.
     final voice = ref.read(voiceServiceProvider);
@@ -103,8 +108,9 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
           });
         }
       case VoiceSpeakingDoneEvent():
-        // The AI finished talking → listen for the next turn.
-        if (_phase == _Phase.speaking) _startListening();
+        // Streaming TTS emits this between sentences too — only move on once
+        // the model has finished generating the whole reply.
+        if (_phase == _Phase.speaking && _genDone) _startListening();
     }
   }
 
@@ -121,6 +127,7 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
   Future<void> _sendText(String text) async {
     final voice = ref.read(voiceServiceProvider);
     await voice.stopListening();
+    await voice.stopSpeaking(); // flush any leftover speech from the last turn
     if (!mounted) return;
 
     setState(() {
@@ -129,6 +136,7 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
       _awaitingResponse = true;
       _streamingMsgId = null;
       _spoken = false;
+      _genDone = false;
     });
 
     ref.read(chatControllerProvider.notifier).send(text);
@@ -152,15 +160,24 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
         setState(() => _phase = _Phase.processing);
       }
     } else if (!_spoken && last.id == _streamingMsgId) {
-      // Streaming just finished. The chat controller speaks the response
-      // (autoSpeak is forced on); we switch to the speaking phase and wait for
-      // the speaking_done event to relisten.
+      // Generation finished. The controller speaks the reply (streaming TTS is
+      // forced on). Move to the speaking phase; we relisten on speaking_done
+      // once _genDone is set.
       _spoken = true;
+      _genDone = true;
       _awaitingResponse = false;
       if (last.content.trim().isEmpty) {
         _startListening();
       } else {
         setState(() => _phase = _Phase.speaking);
+        // If streaming TTS already finished speaking everything (nothing left
+        // queued), there won't be another speaking_done — relisten now.
+        () async {
+          final speaking = await ref.read(voiceServiceProvider).isSpeaking;
+          if (mounted && !speaking && _phase == _Phase.speaking) {
+            _startListening();
+          }
+        }();
       }
     }
   }

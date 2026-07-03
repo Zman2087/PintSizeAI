@@ -74,6 +74,7 @@ final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
             result(nil)
 
         case "stopSpeaking":
+            pendingUtterances = 0
             synthesizer.stopSpeaking(at: .immediate)
             result(nil)
 
@@ -279,14 +280,24 @@ final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
 
     // ── TTS implementation ────────────────────────────────────────────────────
 
+    // Number of utterances queued but not yet finished. Lets us fire a single
+    // "speaking_done" only when the whole queue drains (needed for streaming
+    // TTS, where a reply is spoken sentence-by-sentence).
+    private var pendingUtterances = 0
+
     private func speak(_ text: String) {
-        synthesizer.stopSpeaking(at: .immediate)
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
 
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .spokenAudio, options: .duckOthers)
         try? session.setActive(true)
 
-        let utterance = AVSpeechUtterance(string: text)
+        // Do NOT stop current speech — enqueue so consecutive sentences play
+        // back-to-back smoothly.
+        pendingUtterances += 1
+
+        let utterance = AVSpeechUtterance(string: trimmed)
         utterance.rate = speechRate
         utterance.pitchMultiplier = 1.0
         if let id = selectedVoiceId, let v = AVSpeechSynthesisVoice(identifier: id) {
@@ -345,9 +356,18 @@ final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                            didFinish utterance: AVSpeechUtterance) {
+        if pendingUtterances > 0 { pendingUtterances -= 1 }
+        // Only report "done" once every queued sentence has finished.
+        guard pendingUtterances == 0 else { return }
         DispatchQueue.main.async { [weak self] in
             self?.eventSink?(["type": "speaking_done"])
         }
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
+                           didCancel utterance: AVSpeechUtterance) {
+        // stopSpeaking already reset the counter; don't emit a done event.
+        pendingUtterances = 0
     }
 }
 

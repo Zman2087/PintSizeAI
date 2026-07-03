@@ -108,37 +108,97 @@ class StockService {
     return null;
   }
 
+  // Names of leveraged / inverse / derivative products we should NOT return
+  // when the user just asks for a company (e.g. "spacex" must be SPCX, not a
+  // "GraniteShares 2x Short SpaceX" ETF).
+  static final _derivativeMarkers = RegExp(
+      r'\b(2x|3x|1\.5x|-1x|ultra|ultrashort|leveraged|inverse|short|long|bull|bear|daily target|geared)\b',
+      caseSensitive: false);
+
   Future<String?> _searchOne(String q) async {
     try {
       final resp = await _dio.get(
         'https://query1.finance.yahoo.com/v1/finance/search',
-        queryParameters: {'q': q, 'quotesCount': 3, 'newsCount': 0},
+        queryParameters: {'q': q, 'quotesCount': 8, 'newsCount': 0},
       );
       final quotes = (resp.data['quotes'] as List?) ?? [];
-      for (final quote in quotes) {
-        final m = quote as Map;
+      String? best;
+      var bestScore = -1 << 30;
+      for (var i = 0; i < quotes.length; i++) {
+        final m = quotes[i] as Map;
+        final sym = m['symbol'] as String?;
+        if (sym == null || sym.isEmpty) continue;
         final type = (m['quoteType'] as String?) ?? '';
-        // Prefer tradable instruments.
-        if (type == 'EQUITY' || type == 'ETF' || type == 'MUTUALFUND' || type == 'INDEX') {
-          final sym = m['symbol'] as String?;
-          if (sym != null && sym.isNotEmpty) return sym;
+        final name = '${m['shortname'] ?? ''} ${m['longname'] ?? ''}';
+
+        // Base score by instrument type — prefer the actual company (EQUITY).
+        var score = switch (type) {
+          'EQUITY' => 100,
+          'MUTUALFUND' => 55,
+          'INDEX' => 45,
+          'ETF' => 40,
+          'CRYPTOCURRENCY' => 10,
+          _ => 0,
+        };
+        // Heavily penalise leveraged/inverse products unless asked for.
+        if (_derivativeMarkers.hasMatch(name) &&
+            !_derivativeMarkers.hasMatch(q)) {
+          score -= 80;
+        }
+        // Small bonus for the company name actually containing the query term.
+        if (name.toLowerCase().contains(q.toLowerCase())) score += 15;
+        // Prefer earlier (more relevant) results on ties.
+        score -= i;
+
+        if (score > bestScore) {
+          bestScore = score;
+          best = sym;
         }
       }
-      // Otherwise take the first result of any type.
-      for (final quote in quotes) {
-        final sym = (quote as Map)['symbol'] as String?;
-        if (sym != null && sym.isNotEmpty) return sym;
-      }
+      return best;
     } catch (_) {}
     return null;
   }
 
-  /// Fetches a quote + ~1 month of daily closes for [symbol].
-  Future<StockQuote?> fetchQuote(String symbol) async {
+  /// Yahoo range/interval pairs for each selectable chart window.
+  static const chartRanges = <String, ({String range, String interval})>{
+    '1W': (range: '5d', interval: '1d'),
+    '1M': (range: '1mo', interval: '1d'),
+    '6M': (range: '6mo', interval: '1d'),
+    '1Y': (range: '1y', interval: '1wk'),
+    '5Y': (range: '5y', interval: '1wk'),
+    '10Y': (range: '10y', interval: '1mo'),
+  };
+
+  /// Fetches just the close prices for [symbol] over a labelled window
+  /// (one of [chartRanges]). Returns an empty list if unavailable.
+  Future<List<double>> fetchCloses(String symbol, String rangeLabel) async {
+    final r = chartRanges[rangeLabel] ?? chartRanges['1M']!;
     try {
       final resp = await _dio.get(
         'https://query1.finance.yahoo.com/v8/finance/chart/$symbol',
-        queryParameters: {'range': '1mo', 'interval': '1d'},
+        queryParameters: {'range': r.range, 'interval': r.interval},
+      );
+      final result = (resp.data['chart']?['result'] as List?)?.firstOrNull;
+      final indicators = result?['indicators']?['quote']?[0] as Map?;
+      final rawCloses = (indicators?['close'] as List?) ?? const [];
+      return rawCloses
+          .where((e) => e != null)
+          .map((e) => (e as num).toDouble())
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Fetches a quote + [rangeLabel] of closes for [symbol].
+  Future<StockQuote?> fetchQuote(String symbol, {String rangeLabel = '1M'}) async {
+    final r = StockService.chartRanges[rangeLabel] ??
+        StockService.chartRanges['1M']!;
+    try {
+      final resp = await _dio.get(
+        'https://query1.finance.yahoo.com/v8/finance/chart/$symbol',
+        queryParameters: {'range': r.range, 'interval': r.interval},
       );
       final result = (resp.data['chart']?['result'] as List?)?.firstOrNull;
       if (result == null) return null;

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../features/web_search/stock_service.dart';
 import '../theme/theme.dart';
 
 /// Renders a live stock quote with a sparkline chart inside a chat message.
@@ -7,7 +8,7 @@ import '../theme/theme.dart';
 /// The data is embedded in assistant message text between
 /// `<pintsize-stock>` … `</pintsize-stock>` as JSON, so it persists like any
 /// other message and is detected by [MessageContent].
-class StockChartCard extends StatelessWidget {
+class StockChartCard extends StatefulWidget {
   const StockChartCard({super.key, required this.json});
 
   /// The JSON payload (the inner text of the marker).
@@ -17,10 +18,34 @@ class StockChartCard extends StatelessWidget {
   static const endMarker = '</pintsize-stock>';
 
   @override
+  State<StockChartCard> createState() => _StockChartCardState();
+}
+
+class _StockChartCardState extends State<StockChartCard> {
+  final _service = StockService();
+  // Cache of closes per range label; seeded with the embedded 1M data.
+  final Map<String, List<double>> _cache = {};
+  String _range = '1M';
+  bool _loading = false;
+
+  Future<void> _selectRange(String symbol, String label) async {
+    if (label == _range && _cache.containsKey(label)) return;
+    setState(() => _range = label);
+    if (_cache.containsKey(label)) return;
+    setState(() => _loading = true);
+    final closes = await _service.fetchCloses(symbol, label);
+    if (!mounted) return;
+    setState(() {
+      if (closes.isNotEmpty) _cache[label] = closes;
+      _loading = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     Map<String, dynamic> data;
     try {
-      data = jsonDecode(json) as Map<String, dynamic>;
+      data = jsonDecode(widget.json) as Map<String, dynamic>;
     } catch (_) {
       return const SizedBox.shrink();
     }
@@ -31,9 +56,12 @@ class StockChartCard extends StatelessWidget {
     final change = (data['change'] as num?)?.toDouble() ?? 0;
     final changePct = (data['changePercent'] as num?)?.toDouble() ?? 0;
     final currency = data['currency'] as String? ?? 'USD';
-    final closes = ((data['closes'] as List?) ?? const [])
-        .map((e) => (e as num).toDouble())
-        .toList();
+    _cache.putIfAbsent(
+        '1M',
+        () => ((data['closes'] as List?) ?? const [])
+            .map((e) => (e as num).toDouble())
+            .toList());
+    final closes = _cache[_range] ?? const <double>[];
     final up = change >= 0;
     final accent = up ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
 
@@ -94,19 +122,51 @@ class StockChartCard extends StatelessWidget {
               ),
             ],
           ),
-          if (closes.length > 1) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 64,
-              width: double.infinity,
-              child: CustomPaint(
-                painter: _SparklinePainter(closes, accent),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text('Past month',
-                style: TextStyle(color: AppColors.textDim, fontSize: 10)),
-          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 64,
+            width: double.infinity,
+            child: _loading
+                ? const Center(
+                    child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2)))
+                : closes.length > 1
+                    ? CustomPaint(painter: _SparklinePainter(closes, accent))
+                    : Center(
+                        child: Text('No chart data for this range',
+                            style: TextStyle(
+                                color: AppColors.textDim, fontSize: 11))),
+          ),
+          const SizedBox(height: 8),
+          // Time-range selector.
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (final label in StockService.chartRanges.keys)
+                GestureDetector(
+                  onTap: () => _selectRange(symbol, label),
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: _range == label
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: _range == label
+                            ? accent
+                            : AppColors.textDim,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
     );
