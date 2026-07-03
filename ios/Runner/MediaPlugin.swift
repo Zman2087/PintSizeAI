@@ -178,7 +178,20 @@ final class MediaPlugin: NSObject {
                     croppedToInstancesExtent: false
                 )
 
-                let uiImg = UIImage(ciImage: CIImage(cvPixelBuffer: maskedImage))
+                // Render the CIImage through a CIContext to a CGImage first —
+                // UIImage(ciImage:).pngData() always returns nil (no CGImage
+                // backing), which previously broke background removal. Going via
+                // a CGImage also preserves the alpha (transparent) channel.
+                let ciImage = CIImage(cvPixelBuffer: maskedImage)
+                let ciContext = CIContext()
+                guard let outputCG = ciContext.createCGImage(
+                        ciImage, from: ciImage.extent) else {
+                    result(FlutterError(code: "ENCODE_FAILED",
+                                        message: "Could not render masked image",
+                                        details: nil))
+                    return
+                }
+                let uiImg = UIImage(cgImage: outputCG)
                 guard let pngData = uiImg.pngData() else {
                     result(FlutterError(code: "ENCODE_FAILED",
                                         message: "PNG encoding failed",

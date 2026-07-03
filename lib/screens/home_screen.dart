@@ -462,10 +462,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       String text, List<ChatAttachment> attachments) async {
     final extra = StringBuffer();
 
+    // A vision model, when loaded, gets the raw image directly (handled earlier
+    // in _sendMessage). Here the loaded model is text-only, so we can only give
+    // it an automated on-device analysis — and must stop the model inventing
+    // details that analysis didn't find.
     for (final att in attachments) {
       if (att.isImage && att.thumbnailBytes != null) {
         final desc = await _media.analyzeImage(att.thumbnailBytes!);
-        if (desc != null) extra.writeln(desc);
+        if (desc != null) {
+          extra.writeln(
+            "An automated on-device analysis of the user's attached image found "
+            "the following facts. Answer using ONLY these facts. Do NOT invent "
+            "people, objects, colours, actions, or scenes that are not listed. "
+            "If these facts are not enough to answer, say you can't see the "
+            "image clearly and suggest loading a vision-capable model.\n$desc",
+          );
+        }
       }
       if (att.isFile && att.generationPrompt != null) {
         // For long documents, retrieve only the passages relevant to the
@@ -1230,7 +1242,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           id: attachment.id,
           type: attachment.type,
           name: '${attachment.name} (no bg)',
-          localPath: attachment.localPath,
+          // Drop the original file path — only the new transparent PNG bytes
+          // should be used from here (otherwise the old image could be shown
+          // or sent instead of the background-removed one).
           thumbnailBytes: result,
           sizeBytes: result.length,
           mimeType: 'image/png',

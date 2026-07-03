@@ -1284,9 +1284,23 @@ class _ImageThumb extends StatelessWidget {
   Widget build(BuildContext context) {
     final imgWidget = bytes != null
         ? Image.memory(bytes!, fit: BoxFit.cover)
-        : Image.asset(path!, fit: BoxFit.cover);
+        : Image.file(File(path!), fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) =>
+                Icon(Icons.broken_image_outlined, color: AppColors.textMuted));
 
     return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        Navigator.of(context).push(PageRouteBuilder(
+          opaque: false,
+          barrierColor: Colors.black,
+          pageBuilder: (_, __, ___) => FullscreenImageViewer(
+            bytes: bytes,
+            path: path,
+            onSave: bytes != null ? () => _saveToPhotos(context) : null,
+          ),
+        ));
+      },
       onLongPress: () {
         HapticFeedback.mediumImpact();
         _showOptions(context);
@@ -1298,6 +1312,59 @@ class _ImageThumb extends StatelessWidget {
           height: 200,
           child: imgWidget,
         ),
+      ),
+    );
+  }
+}
+
+/// Fullscreen, pinch-to-zoom image viewer opened by tapping an image in chat.
+class FullscreenImageViewer extends StatelessWidget {
+  const FullscreenImageViewer({super.key, this.bytes, this.path, this.onSave});
+  final Uint8List? bytes;
+  final String? path;
+  final VoidCallback? onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final img = bytes != null
+        ? Image.memory(bytes!, fit: BoxFit.contain)
+        : Image.file(File(path!), fit: BoxFit.contain);
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Tap the backdrop (not the image) to dismiss.
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 5,
+                child: Center(child: img),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  if (onSave != null)
+                    IconButton(
+                      icon: const Icon(Icons.download_rounded,
+                          color: Colors.white, size: 26),
+                      onPressed: onSave,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
