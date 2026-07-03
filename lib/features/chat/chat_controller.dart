@@ -837,7 +837,7 @@ class ChatController extends StateNotifier<ChatState> {
     for (final msg in history.where((m) => !m.isStreaming || m.isUser)) {
       messages.add({
         'role': msg.isUser ? 'user' : 'assistant',
-        'content': msg.content,
+        'content': _sanitizeForPrompt(msg.content),
       });
     }
 
@@ -852,6 +852,14 @@ class ChatController extends StateNotifier<ChatState> {
     return _buildChatMLPrompt(system, history);
   }
 
+  // Strips UI-card markup (e.g. the stock card's `<pintsize-stock>{json}</…>`)
+  // out of message content before it's fed back to the model — otherwise the
+  // model sees the raw JSON in its context and parrots it instead of answering.
+  static final _cardMarkup =
+      RegExp(r'<pintsize-\w+>.*?</pintsize-\w+>', dotAll: true);
+  String _sanitizeForPrompt(String content) =>
+      content.replaceAll(_cardMarkup, '').trim();
+
   // ── ChatML fallback (SmolLM2, Qwen… ) ─────────────────────────────────────
 
   String _buildChatMLPrompt(String system, List<ChatMessage> history) {
@@ -860,7 +868,7 @@ class ChatController extends StateNotifier<ChatState> {
 
     for (final msg in history.where((m) => !m.isStreaming || m.isUser)) {
       final role = msg.isUser ? 'user' : 'assistant';
-      buf.write('<|im_start|>$role\n${msg.content}<|im_end|>\n');
+      buf.write('<|im_start|>$role\n${_sanitizeForPrompt(msg.content)}<|im_end|>\n');
     }
 
     buf.write('<|im_start|>assistant\n');
