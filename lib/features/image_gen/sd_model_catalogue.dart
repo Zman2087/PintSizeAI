@@ -70,4 +70,21 @@ const kSDModelCatalogue = [
     strengths: ['Sharper detail', 'Better prompts', 'Consistent outputs'],
     notes: 'Recommended for iPhone 14 or newer.',
   ),
+  SDModel(
+    id: 'sd-mixedbit-palettized',
+    displayName: 'Stable Diffusion (Max Quality)',
+    description:
+        'Apple\'s mixed-bit palettized SD — the highest-quality on-device build. '
+        'Large (~6.7 GB) and slower; only for iPhone 15 Pro / 16 Pro-class '
+        'devices with 8 GB of memory.',
+    downloadUrl:
+        'https://huggingface.co/apple/coreml-stable-diffusion-mixed-bit-palettization/resolve/main/'
+        'coreml-stable-diffusion-mixed-bit-palettization_original_compiled.zip',
+    totalSizeBytes: 7202181120, // ~6.7 GB
+    minRamGb: 8,
+    minIphone: 'iPhone 15 Pro',
+    stepsRecommended: 20,
+    strengths: ['Best detail', 'Fewer artefacts', 'High-end only'],
+    notes: 'Large download. Best on iPhone 15 Pro or newer with 8 GB RAM.',
+  ),
 ];

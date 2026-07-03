@@ -655,6 +655,15 @@ class _ImageModelsTab extends ConsumerWidget {
               style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
         ),
         for (final m in kSDModelCatalogue) _SDModelRow(model: m, status: status),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+          child: Text(
+              'These are the Apple-compiled Core ML models that run on iPhone. '
+              'Unlike text models, on-device image generation needs specially '
+              'compiled models, so the list is intentionally short — other '
+              'Stable Diffusion models from the web won\'t run on iOS.',
+              style: TextStyle(color: AppColors.textDim, fontSize: 11, height: 1.4)),
+        ),
       ],
     );
   }

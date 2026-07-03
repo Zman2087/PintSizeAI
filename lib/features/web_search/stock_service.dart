@@ -114,9 +114,13 @@ class StockService {
 
   // Names of leveraged / inverse / derivative products we should NOT return
   // when the user just asks for a company (e.g. "spacex" must be SPCX, not a
-  // "GraniteShares 2x Short SpaceX" ETF).
+  // "GraniteShares 2x Short SpaceX" ETF or a "Ninepoint SpaceX HighShares ETF").
   static final _derivativeMarkers = RegExp(
       r'\b(2x|3x|1\.5x|-1x|ultra|ultrashort|leveraged|inverse|short|long|bull|bear|daily target|geared)\b',
+      caseSensitive: false);
+  // Fund/wrapper markers — these track a company but aren't the company itself.
+  static final _fundMarkers = RegExp(
+      r'\b(etf|etn|fund|trust|tokenized|highshares|notes)\b',
       caseSensitive: false);
 
   Future<String?> _searchOne(String q) async {
@@ -149,8 +153,22 @@ class StockService {
             !_derivativeMarkers.hasMatch(q)) {
           score -= 80;
         }
-        // Small bonus for the company name actually containing the query term.
-        if (name.toLowerCase().contains(q.toLowerCase())) score += 15;
+        // Penalise fund/ETF wrappers unless the user explicitly asked for one —
+        // "spacex" should resolve to the company (SPCX), not a "SpaceX ETF".
+        if (_fundMarkers.hasMatch(name) && !_fundMarkers.hasMatch(q)) {
+          score -= 70;
+        }
+        // Exact ticker match (ignoring any exchange suffix) is the strongest
+        // signal — e.g. querying "SPY" should return SPY even though it's a fund.
+        final bareSym = sym.split('.').first.toLowerCase();
+        if (bareSym == q.toLowerCase()) {
+          score += 80;
+        } else if (name.toLowerCase().contains(q.toLowerCase())) {
+          // Weak hint only; a wrapper's name often contains the company too.
+          score += 8;
+        }
+        // Prefer a primary/US listing over a foreign secondary (e.g. SXHI.NE).
+        if (sym.contains('.')) score -= 12;
         // Prefer earlier (more relevant) results on ties.
         score -= i;
 
