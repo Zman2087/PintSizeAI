@@ -85,6 +85,10 @@ void main() {
       expect(StockService.cleanQuery('tesla stock price'), 'tesla');
       expect(StockService.cleanQuery('current price of aapl'), 'aapl');
     });
+    test('handles apostrophes without leaving a stray token', () {
+      expect(StockService.cleanQuery("what's the spacex share price"), 'spacex');
+      expect(StockService.cleanQuery('what’s tesla trading at'), 'tesla');
+    });
     test('keeps ticker with exchange suffix', () {
       expect(StockService.cleanQuery('share price of ghhf.asx'), 'ghhf.asx');
     });

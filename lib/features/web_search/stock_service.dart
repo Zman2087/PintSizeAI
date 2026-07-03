@@ -78,9 +78,13 @@ class StockService {
   static String cleanQuery(String query) {
     final tokens = query
         .toLowerCase()
+        // Remove apostrophes FIRST so "what's" -> "whats" (a filler) instead of
+        // leaving a stray "s" that corrupts the search (e.g. "s spacex").
+        .replaceAll(RegExp(r"['’`]"), '')
         .replaceAll(RegExp(r'[^a-z0-9\.\s]'), ' ')
         .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty && !_fillers.contains(t))
+        // Drop fillers and any leftover single-character tokens.
+        .where((t) => t.length > 1 && !_fillers.contains(t))
         .toList();
     return tokens.join(' ').trim();
   }
