@@ -502,13 +502,25 @@ class _QuantSheetState extends ConsumerState<_QuantSheet> {
     }
 
     await ref.read(customModelsProvider.notifier).add(model);
-    ref.read(modelActionsProvider).download(model);
+    // For a model that fits, download + load + activate in one step so the user
+    // never taps "Load" separately. For an oversized model, only download —
+    // auto-loading it could exhaust memory and crash.
+    final actions = ref.read(modelActionsProvider);
+    final willAutoLoad = fit != ModelFit.tooBig;
+    if (willAutoLoad) {
+      actions.loadModel(model);
+    } else {
+      actions.download(model);
+    }
     if (mounted) {
       final tabs = DefaultTabController.maybeOf(context);
       Navigator.pop(context); // close quant sheet
       tabs?.animateTo(0); // jump to "On device" so progress is visible
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Downloading ${model.displayName} — track it here in "On device".')),
+        SnackBar(
+            content: Text(willAutoLoad
+                ? 'Downloading ${model.displayName} — it will load automatically when ready.'
+                : 'Downloading ${model.displayName} — tap it under "On device" to load.')),
       );
     }
   }

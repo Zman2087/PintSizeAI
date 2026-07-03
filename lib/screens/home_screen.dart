@@ -156,7 +156,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   @override
-  @override
   void dispose() {
     _voiceSub?.cancel();
     _inputCtrl.removeListener(_onInputChanged);

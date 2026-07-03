@@ -276,7 +276,8 @@ class _ModelDetailSheet extends ConsumerWidget {
 
     // Not downloaded → warn if it's too big for this device, then download.
     final profile = ref.read(deviceProfileProvider).valueOrNull;
-    if (profile != null && deviceFit(model, profile) == ModelFit.tooBig) {
+    final tooBig = profile != null && deviceFit(model, profile) == ModelFit.tooBig;
+    if (tooBig) {
       final go = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
@@ -301,7 +302,13 @@ class _ModelDetailSheet extends ConsumerWidget {
       );
       if (go != true) return;
     }
-    ref.read(modelActionsProvider).download(model);
+    // A model that fits: download + load + activate in one step (no separate
+    // "Load" tap). Oversized: only download — auto-loading could crash.
+    if (tooBig) {
+      ref.read(modelActionsProvider).download(model);
+    } else {
+      ref.read(modelActionsProvider).loadModel(model);
+    }
     // Keep the sheet open so the user sees the live download progress.
   }
 }
