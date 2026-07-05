@@ -1,4 +1,4 @@
-package com.example.mypocketai
+package com.pintsize.ai
 
 import android.app.ActivityManager
 import android.content.Context

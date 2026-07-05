@@ -1,0 +1,30 @@
+PintSizeAi — Source-Available License
+
+Copyright (c) 2026 Zman2087. All rights reserved.
+
+The source code in this repository is made publicly viewable for
+transparency, learning, and reference.
+
+Permission is granted to:
+  - View, clone, and study the source code
+  - Build and run the app for personal, non-commercial use
+  - Submit issues and pull requests to this repository
+
+Permission is NOT granted to:
+  - Redistribute this software or derivative works, in source or binary
+    form, including publishing to any app store
+  - Use the PintSizeAi name, icon, or branding
+  - Use this code, in whole or substantial part, in other products or
+    services, commercial or otherwise
+
+For any use beyond the permissions above, contact the copyright holder.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
+FROM THE USE OF THE SOFTWARE.
+
+Third-party components retain their own licenses, including:
+  - llama.cpp (MIT, © ggml authors) — fetched by scripts/setup_llama.sh
+  - Flutter and pub.dev packages — see pubspec.yaml for the full list

@@ -91,3 +91,7 @@ dart format .            # formatting (CI-enforced)
 - [App Store listing](docs/APP_STORE_LISTING.md)
 - [Privacy & data handling](docs/PRIVACY_AND_DATA.md)
 - [Release checklist](docs/RELEASE_CHECKLIST.md)
+
+## License
+
+Source-available: you're welcome to read, build, and learn from this code, but redistribution and commercial reuse are not permitted — see [LICENSE](LICENSE). llama.cpp is MIT-licensed by the ggml authors.

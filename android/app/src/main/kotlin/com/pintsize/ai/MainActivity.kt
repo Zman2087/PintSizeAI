@@ -1,4 +1,4 @@
-package com.example.mypocketai
+package com.pintsize.ai
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
