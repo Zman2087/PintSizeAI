@@ -72,11 +72,11 @@ enum EliminationReason {
   chipTooSlow;
 
   String get label => switch (this) {
-    EliminationReason.tooMuchRam       => 'Needs more RAM than available',
-    EliminationReason.tooSlow          => 'Would be too slow on this device',
-    EliminationReason.notEnoughStorage => 'Not enough storage to download',
-    EliminationReason.chipTooSlow      => 'Chip too slow for this model size',
-  };
+        EliminationReason.tooMuchRam => 'Needs more RAM than available',
+        EliminationReason.tooSlow => 'Would be too slow on this device',
+        EliminationReason.notEnoughStorage => 'Not enough storage to download',
+        EliminationReason.chipTooSlow => 'Chip too slow for this model size',
+      };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,7 +126,7 @@ class ModelRecommender {
     }
 
     final baseline = device.chipTier.baseline3bTokensPerSec;
-    final ranked   = <RankedModel>[];
+    final ranked = <RankedModel>[];
     final ruledOut = <RuledOutModel>[];
 
     for (final model in catalogue) {
@@ -212,31 +212,30 @@ class ModelRecommender {
   ///                    More headroom = more stable long conversations.
   ///                    Weight: 0.20
   double _score(ModelVariant model, double tps, DeviceProfile device) {
-
     // Quality proxy: params × log2(context) — context has diminishing returns
-    const maxParams   = 8.0;
-    const maxContext  = 131072.0;
-    final qualityRaw  = (model.parametersBillions / maxParams) *
-                        (model.contextLength.toDouble().log2() /
-                         maxContext.log2());
+    const maxParams = 8.0;
+    const maxContext = 131072.0;
+    final qualityRaw = (model.parametersBillions / maxParams) *
+        (model.contextLength.toDouble().log2() / maxContext.log2());
     final qualityScore = qualityRaw.clamp(0.0, 1.0);
 
     // Speed: normalise 0–30 t/s range
     final speedScore = (tps / 30.0).clamp(0.0, 1.0);
 
     // RAM margin: leftover headroom after model load
-    final remaining   = device.safeModelRamBytes - model.ramRequiredBytes;
-    final ramMarginScore = (remaining / device.safeModelRamBytes).clamp(0.0, 1.0);
+    final remaining = device.safeModelRamBytes - model.ramRequiredBytes;
+    final ramMarginScore =
+        (remaining / device.safeModelRamBytes).clamp(0.0, 1.0);
 
-    return (qualityScore  * 0.55) +
-           (speedScore    * 0.25) +
-           (ramMarginScore * 0.20);
+    return (qualityScore * 0.55) +
+        (speedScore * 0.25) +
+        (ramMarginScore * 0.20);
   }
 
   // ── Human-readable explanations ────────────────────────────────────────────
 
   String _summaryFor(RankedModel best, DeviceProfile device) {
-    final tps  = best.estimatedTokensPerSec.round();
+    final tps = best.estimatedTokensPerSec.round();
     final name = best.model.displayName;
     final tier = device.chipTier.label;
     return '$name is the best fit for your $tier device — '
@@ -249,7 +248,7 @@ class ModelRecommender {
     List<RuledOutModel> ruledOut,
   ) {
     final model = best.model;
-    final tps   = best.estimatedTokensPerSec.toStringAsFixed(1);
+    final tps = best.estimatedTokensPerSec.toStringAsFixed(1);
     final ramGb = (model.ramRequiredBytes / 1e9).toStringAsFixed(1);
     final freeGb = device.freeRamGb;
 
@@ -301,7 +300,8 @@ class ModelRecommender {
           'the most usable response speed.',
       ruledOut: catalogue
           .skip(1)
-          .map((m) => RuledOutModel(model: m, reason: EliminationReason.chipTooSlow))
+          .map((m) =>
+              RuledOutModel(model: m, reason: EliminationReason.chipTooSlow))
           .toList(),
       allRanked: [
         RankedModel(

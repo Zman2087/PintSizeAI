@@ -79,8 +79,8 @@ class _ModelDetailSheet extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text('Active',
-                                  style: AppTypography.badge.copyWith(
-                                      color: AppColors.accentGreen)),
+                                  style: AppTypography.badge
+                                      .copyWith(color: AppColors.accentGreen)),
                             ),
                         ],
                       ),
@@ -233,7 +233,7 @@ class _ModelDetailSheet extends ConsumerWidget {
       ModelFamily.qwen => AppColors.modelPurple,
       ModelFamily.deepseek => AppColors.modelBlue,
       ModelFamily.smollm => AppColors.modelSurface,
-        ModelFamily.lfm => AppColors.modelGreen,
+      ModelFamily.lfm => AppColors.modelGreen,
     };
     final icon = switch (m.family) {
       ModelFamily.llama => Icons.memory,
@@ -243,7 +243,7 @@ class _ModelDetailSheet extends ConsumerWidget {
       ModelFamily.qwen => Icons.waves,
       ModelFamily.deepseek => Icons.psychology_outlined,
       ModelFamily.smollm => Icons.bubble_chart_outlined,
-        ModelFamily.lfm => Icons.water_drop_outlined,
+      ModelFamily.lfm => Icons.water_drop_outlined,
     };
     return ModelIcon(color: color, icon: icon, size: 44);
   }
@@ -278,7 +278,8 @@ class _ModelDetailSheet extends ConsumerWidget {
 
     // Not downloaded → warn if it's too big for this device, then download.
     final profile = ref.read(deviceProfileProvider).valueOrNull;
-    final tooBig = profile != null && deviceFit(model, profile) == ModelFit.tooBig;
+    final tooBig =
+        profile != null && deviceFit(model, profile) == ModelFit.tooBig;
     if (tooBig) {
       final go = await showDialog<bool>(
         context: context,
@@ -344,12 +345,10 @@ class _SpecsGrid extends StatelessWidget {
       mainAxisSpacing: 8,
       crossAxisSpacing: 8,
       children: [
-        _SpecCell(
-            label: 'Parameters', value: '${model.parametersBillions}B'),
+        _SpecCell(label: 'Parameters', value: '${model.parametersBillions}B'),
         _SpecCell(label: 'Quantisation', value: model.quant.label),
         _SpecCell(
-            label: 'Context',
-            value: '${model.contextLength ~/ 1024}k tokens'),
+            label: 'Context', value: '${model.contextLength ~/ 1024}k tokens'),
         _SpecCell(
             label: 'File size',
             value: model.fileSizeGb.toStringAsFixed(1) + ' GB'),
@@ -357,8 +356,7 @@ class _SpecsGrid extends StatelessWidget {
             label: 'RAM required',
             value: model.ramRequiredGb.toStringAsFixed(1) + ' GB'),
         _SpecCell(
-            label: 'Min RAM rec.',
-            value: '${model.minRamGbRecommended} GB'),
+            label: 'Min RAM rec.', value: '${model.minRamGbRecommended} GB'),
       ],
     );
   }
@@ -382,8 +380,7 @@ class _SpecCell extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label,
-              style: AppTypography.userMeta.copyWith(fontSize: 10)),
+          Text(label, style: AppTypography.userMeta.copyWith(fontSize: 10)),
           Text(value, style: AppTypography.modelName),
         ],
       ),
@@ -398,8 +395,7 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        positive ? AppColors.accentGreen : const Color(0xFFE57373);
+    final color = positive ? AppColors.accentGreen : const Color(0xFFE57373);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -416,8 +412,7 @@ class _Chip extends StatelessWidget {
             color: color,
           ),
           const SizedBox(width: 4),
-          Text(label,
-              style: AppTypography.badge.copyWith(color: color)),
+          Text(label, style: AppTypography.badge.copyWith(color: color)),
         ],
       ),
     );

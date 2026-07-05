@@ -36,7 +36,6 @@ class _Content extends StatelessWidget {
           'The performance you get depends heavily on your hardware. '
           'Here\'s what to expect.',
         ),
-
         const SizedBox(height: 28),
         _TierCard(
           tier: 'Minimum',
@@ -49,7 +48,6 @@ class _Content extends StatelessWidget {
               'Runs SmolLM2 (135M–360M). Very fast responses but limited quality. '
               'Good for simple Q&A and quick tasks.',
         ),
-
         const SizedBox(height: 16),
         _TierCard(
           tier: 'Recommended',
@@ -62,7 +60,6 @@ class _Content extends StatelessWidget {
               'Runs Llama 3.2 3B or Phi-3.5 Mini comfortably. Good all-round '
               'quality at 10–20 tokens/sec. Best balance of capability and speed.',
         ),
-
         const SizedBox(height: 16),
         _TierCard(
           tier: 'Best Experience',
@@ -75,12 +72,10 @@ class _Content extends StatelessWidget {
               'Runs Llama 3.1 8B, Qwen 2.5 7B, or DeepSeek-R1 at full quality. '
               '15–25 tokens/sec on the best hardware. Flagship-class AI fully offline.',
         ),
-
         const SizedBox(height: 32),
         _sectionTitle('Per-Model Requirements'),
         const SizedBox(height: 12),
         ...kModelCatalogue.map((m) => _ModelRow(model: m)),
-
         const SizedBox(height: 32),
         _sectionTitle('Why RAM Matters'),
         const SizedBox(height: 8),
@@ -92,7 +87,6 @@ class _Content extends StatelessWidget {
           'iOS manages memory aggressively — close background apps before loading '
           'large models. On iPad Pro with 8–16 GB RAM this is rarely an issue.',
         ),
-
         const SizedBox(height: 16),
         _sectionTitle('Why Storage Matters'),
         const SizedBox(height: 8),
@@ -123,8 +117,7 @@ class _Content extends StatelessWidget {
       );
 
   Widget _body(String text) => Text(text,
-      style: TextStyle(
-          color: AppColors.textMuted, fontSize: 14, height: 1.65));
+      style: TextStyle(color: AppColors.textMuted, fontSize: 14, height: 1.65));
 }
 
 class _TierCard extends StatelessWidget {
@@ -164,9 +157,7 @@ class _TierCard extends StatelessWidget {
               const SizedBox(width: 8),
               Text(tier,
                   style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14)),
+                      color: color, fontWeight: FontWeight.w700, fontSize: 14)),
             ],
           ),
           const SizedBox(height: 14),
@@ -206,17 +197,13 @@ class _TierCard extends StatelessWidget {
           _label('Free storage needed'),
           Text(storage,
               style: TextStyle(
-                  color: AppColors.textDefault,
-                  fontSize: 13,
-                  height: 1.5)),
+                  color: AppColors.textDefault, fontSize: 13, height: 1.5)),
           const SizedBox(height: 12),
           Divider(color: AppColors.borderDefault, height: 1),
           const SizedBox(height: 12),
           Text(experience,
               style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 13,
-                  height: 1.55)),
+                  color: AppColors.textMuted, fontSize: 13, height: 1.55)),
         ],
       ),
     );
@@ -250,8 +237,7 @@ class _ModelRow extends StatelessWidget {
         children: [
           Expanded(
             flex: 3,
-            child: Text(model.displayName,
-                style: AppTypography.modelName),
+            child: Text(model.displayName, style: AppTypography.modelName),
           ),
           Expanded(
             flex: 2,

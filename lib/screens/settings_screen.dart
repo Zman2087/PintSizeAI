@@ -256,8 +256,7 @@ class SettingsScreen extends ConsumerWidget {
           Center(
             child: Text(
               'Made with ❤ for privacy',
-              style: TextStyle(
-                  color: AppColors.textDim, fontSize: 12),
+              style: TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
           ),
           const SizedBox(height: 20),
@@ -277,20 +276,20 @@ class SettingsScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
-              _LicenceEntry('llama.cpp', 'MIT Licence',
-                  'Georgi Gerganov & contributors'),
-              _LicenceEntry('Flutter', 'BSD 3-Clause Licence',
-                  'Google & contributors'),
-              _LicenceEntry('flutter_riverpod', 'MIT Licence', 'Remi Rousselet'),
+              _LicenceEntry(
+                  'llama.cpp', 'MIT Licence', 'Georgi Gerganov & contributors'),
+              _LicenceEntry(
+                  'Flutter', 'BSD 3-Clause Licence', 'Google & contributors'),
+              _LicenceEntry(
+                  'flutter_riverpod', 'MIT Licence', 'Remi Rousselet'),
               _LicenceEntry('dio', 'MIT Licence', 'CancelToken & contributors'),
               _LicenceEntry(
                   'image_picker', 'BSD 3-Clause Licence', 'Flutter team'),
+              _LicenceEntry('file_picker', 'MIT Licence', 'Miguel Ruivo'),
               _LicenceEntry(
-                  'file_picker', 'MIT Licence', 'Miguel Ruivo'),
-              _LicenceEntry('shared_preferences', 'BSD 3-Clause Licence',
-                  'Flutter team'),
-              _LicenceEntry('path_provider', 'BSD 3-Clause Licence',
-                  'Flutter team'),
+                  'shared_preferences', 'BSD 3-Clause Licence', 'Flutter team'),
+              _LicenceEntry(
+                  'path_provider', 'BSD 3-Clause Licence', 'Flutter team'),
             ],
           ),
         ),
@@ -329,8 +328,8 @@ class SettingsScreen extends ConsumerWidget {
               // via the settings notifier (chat controller listens)
               ref.read(settingsServiceProvider).clearLastModelId();
             },
-            style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFE57373)),
+            style:
+                TextButton.styleFrom(foregroundColor: const Color(0xFFE57373)),
             child: const Text('Clear'),
           ),
         ],
@@ -445,13 +444,12 @@ class _LinkRow extends StatelessWidget {
                 children: [
                   Text(title, style: AppTypography.modelName),
                   Text(subtitle,
-                      style: AppTypography.modelDesc.copyWith(
-                          color: const Color(0xFF60A5FA))),
+                      style: AppTypography.modelDesc
+                          .copyWith(color: const Color(0xFF60A5FA))),
                 ],
               ),
             ),
-            const Icon(Icons.open_in_new,
-                size: 14, color: Color(0xFF60A5FA)),
+            const Icon(Icons.open_in_new, size: 14, color: Color(0xFF60A5FA)),
           ],
         ),
       ),
@@ -519,7 +517,8 @@ class _ImageGenRow extends ConsumerWidget {
     final subtitle = switch (status.state) {
       SDModelState.loaded => 'Active — Core ML model loaded',
       SDModelState.ready => 'Downloaded — tap to load',
-      SDModelState.downloading => 'Downloading… ${(status.downloadProgress * 100).toInt()}%',
+      SDModelState.downloading =>
+        'Downloading… ${(status.downloadProgress * 100).toInt()}%',
       SDModelState.extracting => 'Extracting…',
       SDModelState.loading => 'Loading into memory…',
       SDModelState.error => 'Error — tap to retry',
@@ -597,8 +596,10 @@ class _DeviceCapabilitiesCard extends ConsumerWidget {
             ),
             _CapRow(
               icon: Icons.memory_outlined,
-              title: 'RAM: ${profile.totalRamGb} GB total · ${profile.freeRamGb} GB free',
-              sub: 'Model budget: up to ${(profile.safeModelRamBytes / 1e9).toStringAsFixed(1)} GB',
+              title:
+                  'RAM: ${profile.totalRamGb} GB total · ${profile.freeRamGb} GB free',
+              sub:
+                  'Model budget: up to ${(profile.safeModelRamBytes / 1e9).toStringAsFixed(1)} GB',
             ),
             _CapRow(
               icon: Icons.speed_outlined,
@@ -609,7 +610,8 @@ class _DeviceCapabilitiesCard extends ConsumerWidget {
             ),
             _CapRow(
               icon: Icons.storage_outlined,
-              title: 'Storage free: ${(profile.freeStorageBytes / 1e9).toStringAsFixed(1)} GB',
+              title:
+                  'Storage free: ${(profile.freeStorageBytes / 1e9).toStringAsFixed(1)} GB',
             ),
             _CapRow(
               icon: Icons.lightbulb_outline,
@@ -634,8 +636,7 @@ class _DeviceCapabilitiesCard extends ConsumerWidget {
           'Best for models up to 8B params (Q4). Real-time generation.',
         ChipTier.highEnd =>
           'Good for models up to 3B params (Q4). ~10–20 tok/s.',
-        ChipTier.midRange =>
-          'Best with 1–2B models (Q4). Expect 5–10 tok/s.',
+        ChipTier.midRange => 'Best with 1–2B models (Q4). Expect 5–10 tok/s.',
         ChipTier.entry =>
           'Stick to 135M–360M models. Larger models may be slow.',
         ChipTier.tooSlow =>
@@ -675,7 +676,6 @@ class _CapRow extends StatelessWidget {
     );
   }
 }
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // System prompt card
@@ -725,8 +725,7 @@ class _SystemPromptCardState extends ConsumerState<_SystemPromptCard> {
           const SizedBox(height: 10),
           TextField(
             controller: _ctrl,
-            style: AppTypography.messageBody
-                .copyWith(fontSize: 13),
+            style: AppTypography.messageBody.copyWith(fontSize: 13),
             maxLines: 4,
             decoration: InputDecoration(
               hintText: 'You are a helpful assistant...',
@@ -748,7 +747,9 @@ class _SystemPromptCardState extends ConsumerState<_SystemPromptCard> {
               contentPadding: const EdgeInsets.all(10),
             ),
             onChanged: (val) {
-              ref.read(customSystemPromptProvider.notifier).update(val.isEmpty ? null : val);
+              ref
+                  .read(customSystemPromptProvider.notifier)
+                  .update(val.isEmpty ? null : val);
               ref.read(settingsServiceProvider).setSystemPrompt(val);
             },
           ),
@@ -872,8 +873,7 @@ class _VoiceSettingsCard extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
-                  Icon(Icons.graphic_eq,
-                      size: 18, color: AppColors.textMuted),
+                  Icon(Icons.graphic_eq, size: 18, color: AppColors.textMuted),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -885,8 +885,7 @@ class _VoiceSettingsCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  Icon(Icons.chevron_right,
-                      size: 18, color: AppColors.textDim),
+                  Icon(Icons.chevron_right, size: 18, color: AppColors.textDim),
                 ],
               ),
             ),
@@ -903,7 +902,8 @@ class _VoiceSettingsCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Voice input', style: AppTypography.modelName),
-                    Text('Tap the mic icon in the chat bar to speak your message.',
+                    Text(
+                        'Tap the mic icon in the chat bar to speak your message.',
                         style: AppTypography.modelDesc),
                   ],
                 ),
@@ -1020,7 +1020,8 @@ class _VoiceSettingsCard extends ConsumerWidget {
         if (ctx.mounted) Navigator.pop(ctx);
       } else if (ctx.mounted) {
         _personalVoiceDialog(
-          ctx, voice,
+          ctx,
+          voice,
           title: 'Create your Personal Voice',
           message:
               'PintSize can speak in your voice, but first you need to create '
@@ -1032,7 +1033,8 @@ class _VoiceSettingsCard extends ConsumerWidget {
       }
     } else if (status == 'denied' && ctx.mounted) {
       _personalVoiceDialog(
-        ctx, voice,
+        ctx,
+        voice,
         title: 'Permission needed',
         message:
             'To speak in your voice, allow PintSize to use your Personal Voice '
@@ -1041,7 +1043,8 @@ class _VoiceSettingsCard extends ConsumerWidget {
       );
     } else if (ctx.mounted) {
       _personalVoiceDialog(
-        ctx, voice,
+        ctx,
+        voice,
         title: 'Not available',
         message:
             'Personal Voice needs iPhone 12 or newer on iOS 17 or later. Create '
@@ -1052,19 +1055,19 @@ class _VoiceSettingsCard extends ConsumerWidget {
   }
 
   void _personalVoiceDialog(BuildContext ctx, dynamic voice,
-      {required String title, required String message, bool showSettings = false}) {
+      {required String title,
+      required String message,
+      bool showSettings = false}) {
     showDialog(
       context: ctx,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surfaceOverlay,
         title: Text(title, style: TextStyle(color: AppColors.textPrimary)),
-        content: Text(message,
-            style: TextStyle(color: AppColors.textMuted)),
+        content: Text(message, style: TextStyle(color: AppColors.textMuted)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Close',
-                style: TextStyle(color: AppColors.textMuted)),
+            child: Text('Close', style: TextStyle(color: AppColors.textMuted)),
           ),
           if (showSettings)
             TextButton(
@@ -1259,7 +1262,8 @@ class _ICloudSyncCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('iCloud sync', style: AppTypography.modelName),
-                    Text('Back up conversations to iCloud KV. '
+                    Text(
+                        'Back up conversations to iCloud KV. '
                         'Requires iCloud account and Apple Developer entitlement.',
                         style: AppTypography.modelDesc),
                   ],

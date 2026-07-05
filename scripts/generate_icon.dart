@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print  (build-time script, not app code)
 /// Generates a 1024×1024 PintSizeAI app icon featuring a small, friendly
 /// stylized brain — a play on the name "PintSize AI" (a pint-size brain).
 /// Design: dark navy radial gradient bg, soft glow halo, and a bold two-
@@ -22,7 +23,7 @@ void main() async {
   _drawGlowHalo(img, size);
   _drawBrain(img, size);
 
-  final masterPath = 'ios/Runner/Assets.xcassets/AppIcon.appiconset';
+  const masterPath = 'ios/Runner/Assets.xcassets/AppIcon.appiconset';
   await _saveSize(img, '$masterPath/Icon-App-1024x1024@1x.png', 1024);
   print('  ✓ Icon-App-1024x1024@1x.png (1024px)');
 
@@ -90,8 +91,8 @@ void _drawGlowHalo(Image img, int size) {
     [size * 0.23, 22],
   ];
   for (final h in halos) {
-    _fillCircle(img, cx, cy, (h[0] as num).round(),
-        ColorRgba8(_cyanR, _cyanG, _cyanB, (h[1] as num).toInt()));
+    _fillCircle(img, cx, cy, h[0].round(),
+        ColorRgba8(_cyanR, _cyanG, _cyanB, h[1].toInt()));
   }
 }
 
@@ -107,9 +108,9 @@ void _drawBrain(Image img, int size) {
   // Brain occupies ~57% of canvas width.
   final brainW = size * 0.57;
   final brainH = size * 0.50;
-  final hemiRx = brainW / 4.0;       // each hemisphere half-width
-  final hemiRy = brainH / 2.0;       // hemisphere half-height
-  final offset = hemiRx * 0.92;      // horizontal offset of each hemisphere centre
+  final hemiRx = brainW / 4.0; // each hemisphere half-width
+  final hemiRy = brainH / 2.0; // hemisphere half-height
+  final offset = hemiRx * 0.92; // horizontal offset of each hemisphere centre
 
   final leftCx = cx - offset;
   final rightCx = cx + offset;
@@ -185,8 +186,8 @@ void _drawBrainGlow(
   final maxY = (cy + hemiRy + 40).ceil();
 
   for (final band in bands) {
-    final grow = (band[0] as num).toDouble();
-    final alpha = (band[1] as num).toInt();
+    final grow = band[0].toDouble();
+    final alpha = band[1].toInt();
     final rx = hemiRx + grow;
     final ry = hemiRy + grow;
     for (var y = minY; y <= maxY; y++) {
@@ -307,11 +308,13 @@ void _drawGyriHighlights(
         if (!insideBrain(x, y)) continue;
         // Soft halo then bright core for a glowing line.
         _stampDot(img, x, y, 4.0, ColorRgba8(cr, cg, cb, 40));
-        _stampDot(img, x, y, 2.2, ColorRgba8(
-            (cr + 0x40).clamp(0, 255),
-            (cg + 0x40).clamp(0, 255),
-            (cb + 0x40).clamp(0, 255),
-            210));
+        _stampDot(
+            img,
+            x,
+            y,
+            2.2,
+            ColorRgba8((cr + 0x40).clamp(0, 255), (cg + 0x40).clamp(0, 255),
+                (cb + 0x40).clamp(0, 255), 210));
       }
     }
   }
@@ -341,7 +344,8 @@ void _stampGroove(Image img, double cx, double cy, double radius) {
 }
 
 /// Soft additive-ish dot used for the lit ridges.
-void _stampDot(Image img, double cx, double cy, double radius, ColorRgba8 color) {
+void _stampDot(
+    Image img, double cx, double cy, double radius, ColorRgba8 color) {
   final r = radius.ceil();
   final icx = cx.round();
   final icy = cy.round();
@@ -357,7 +361,8 @@ void _stampDot(Image img, double cx, double cy, double radius, ColorRgba8 color)
   }
 }
 
-bool _inEllipse(double x, double y, double cx, double cy, double rx, double ry) {
+bool _inEllipse(
+    double x, double y, double cx, double cy, double rx, double ry) {
   final nx = (x - cx) / rx;
   final ny = (y - cy) / ry;
   return nx * nx + ny * ny <= 1.0;

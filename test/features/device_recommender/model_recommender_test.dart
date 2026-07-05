@@ -19,14 +19,14 @@ DeviceProfile makeProfile({
   int cpuCoreCount = 6,
 }) {
   return DeviceProfile(
-    totalRamBytes:    totalRamGb    * 1024 * 1024 * 1024,
-    freeRamBytes:     freeRamGb     * 1024 * 1024 * 1024,
+    totalRamBytes: totalRamGb * 1024 * 1024 * 1024,
+    freeRamBytes: freeRamGb * 1024 * 1024 * 1024,
     freeStorageBytes: freeStorageGb * 1024 * 1024 * 1024,
-    chipTier:         chipTier,
-    cpuCoreCount:     cpuCoreCount,
+    chipTier: chipTier,
+    cpuCoreCount: cpuCoreCount,
     hasGpuAcceleration: hasGpu,
-    osVersion:        '18.0',
-    deviceName:       'Test Device',
+    osVersion: '18.0',
+    deviceName: 'Test Device',
   );
 }
 
@@ -37,7 +37,9 @@ void main() {
 
   group('iPhone 16 Pro — flagship, 8GB RAM', () {
     final device = makeProfile(
-      totalRamGb: 8, freeRamGb: 7, freeStorageGb: 50,
+      totalRamGb: 8,
+      freeRamGb: 7,
+      freeStorageGb: 50,
       chipTier: ChipTier.flagship,
     );
 
@@ -58,7 +60,8 @@ void main() {
 
     test('estimated speed is above the minimum floor', () {
       final rec = recommender.recommend(device);
-      expect(rec.estimatedTokensPerSec, greaterThanOrEqualTo(ModelRecommender.kMinTokensPerSec));
+      expect(rec.estimatedTokensPerSec,
+          greaterThanOrEqualTo(ModelRecommender.kMinTokensPerSec));
     });
 
     test('reason summary mentions flagship', () {
@@ -69,7 +72,9 @@ void main() {
 
   group('Samsung Galaxy S23 — highEnd, 8GB RAM', () {
     final device = makeProfile(
-      totalRamGb: 8, freeRamGb: 4, freeStorageGb: 30,
+      totalRamGb: 8,
+      freeRamGb: 4,
+      freeStorageGb: 30,
       chipTier: ChipTier.highEnd,
     );
 
@@ -83,13 +88,16 @@ void main() {
 
     test('estimated speed is above the minimum floor', () {
       final rec = recommender.recommend(device);
-      expect(rec.estimatedTokensPerSec, greaterThanOrEqualTo(ModelRecommender.kMinTokensPerSec));
+      expect(rec.estimatedTokensPerSec,
+          greaterThanOrEqualTo(ModelRecommender.kMinTokensPerSec));
     });
   });
 
   group('Mid-range Android — 6GB RAM, 4GB free', () {
     final device = makeProfile(
-      totalRamGb: 6, freeRamGb: 4, freeStorageGb: 15,
+      totalRamGb: 6,
+      freeRamGb: 4,
+      freeStorageGb: 15,
       chipTier: ChipTier.midRange,
     );
 
@@ -110,7 +118,9 @@ void main() {
 
   group('Entry-level phone — 4GB RAM, 2GB free', () {
     final device = makeProfile(
-      totalRamGb: 4, freeRamGb: 2, freeStorageGb: 8,
+      totalRamGb: 4,
+      freeRamGb: 2,
+      freeStorageGb: 8,
       chipTier: ChipTier.entry,
     );
 
@@ -121,16 +131,17 @@ void main() {
 
     test('7B models are ruled out', () {
       final rec = recommender.recommend(device);
-      final ruled7b = rec.ruledOut
-          .where((r) => r.model.parametersBillions >= 7.0)
-          .toList();
+      final ruled7b =
+          rec.ruledOut.where((r) => r.model.parametersBillions >= 7.0).toList();
       expect(ruled7b, isNotEmpty);
     });
   });
 
   group('Very old device — ChipTier.tooSlow', () {
     final device = makeProfile(
-      totalRamGb: 2, freeRamGb: 1, freeStorageGb: 4,
+      totalRamGb: 2,
+      freeRamGb: 1,
+      freeStorageGb: 4,
       chipTier: ChipTier.tooSlow,
     );
 
@@ -147,14 +158,18 @@ void main() {
 
   group('Ample RAM but CPU-only (no GPU)', () {
     final device = makeProfile(
-      totalRamGb: 8, freeRamGb: 6, freeStorageGb: 30,
+      totalRamGb: 8,
+      freeRamGb: 6,
+      freeStorageGb: 30,
       chipTier: ChipTier.highEnd,
       hasGpu: false,
     );
 
     test('recommends a smaller model than the GPU equivalent', () {
       final gpuDevice = makeProfile(
-        totalRamGb: 8, freeRamGb: 6, freeStorageGb: 30,
+        totalRamGb: 8,
+        freeRamGb: 6,
+        freeStorageGb: 30,
         chipTier: ChipTier.highEnd,
         hasGpu: true,
       );
@@ -194,18 +209,23 @@ void main() {
   group('Scoring sanity checks', () {
     test('allRanked is ordered best-first', () {
       final device = makeProfile(
-        totalRamGb: 8, freeRamGb: 6, freeStorageGb: 30,
+        totalRamGb: 8,
+        freeRamGb: 6,
+        freeStorageGb: 30,
         chipTier: ChipTier.flagship,
       );
       final rec = recommender.recommend(device);
       for (var i = 0; i < rec.allRanked.length - 1; i++) {
-        expect(rec.allRanked[i].score, greaterThanOrEqualTo(rec.allRanked[i + 1].score));
+        expect(rec.allRanked[i].score,
+            greaterThanOrEqualTo(rec.allRanked[i + 1].score));
       }
     });
 
     test('recommended model is the first in allRanked', () {
       final device = makeProfile(
-        totalRamGb: 8, freeRamGb: 6, freeStorageGb: 30,
+        totalRamGb: 8,
+        freeRamGb: 6,
+        freeStorageGb: 30,
         chipTier: ChipTier.flagship,
       );
       final rec = recommender.recommend(device);

@@ -131,7 +131,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final text = _inputCtrl.text;
     if (text.startsWith('/')) {
       final query = text.substring(1).toLowerCase().split(' ').first;
-      final matches = _kCommands.where((c) => c.name.startsWith(query)).toList();
+      final matches =
+          _kCommands.where((c) => c.name.startsWith(query)).toList();
       setState(() => _commandSuggestions = matches);
     } else if (_commandSuggestions.isNotEmpty) {
       setState(() => _commandSuggestions = []);
@@ -144,7 +145,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Look in both the built-in catalogue and user-imported (HF) models.
     var model = kModelCatalogue.where((m) => m.id == lastId).firstOrNull;
-    model ??= ref.read(customModelsProvider).where((m) => m.id == lastId).firstOrNull;
+    model ??=
+        ref.read(customModelsProvider).where((m) => m.id == lastId).firstOrNull;
     if (model == null) return;
 
     final storage = ref.read(modelStorageProvider);
@@ -284,7 +286,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (StockService.looksLikeStockQuery(text)) {
       _showSnack('Fetching live market data…');
       final quote = await _stock.lookup(text);
-      DiagLog.log('stock query="$text" → ${quote == null ? "NO QUOTE" : "${quote.symbol} ${quote.price}"}');
+      DiagLog.log(
+          'stock query="$text" → ${quote == null ? "NO QUOTE" : "${quote.symbol} ${quote.price}"}');
       if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
       if (quote != null) {
         ref.read(chatControllerProvider.notifier).addUserMessage(text);
@@ -333,10 +336,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   static bool _isImageEditRequest(String text) {
     final lower = text.toLowerCase();
     const editKeywords = [
-      'make', 'change', 'turn', 'remove', 'replace', 'swap',
-      'edit', 'modify', 'adjust', 'convert', 'transform',
-      'white', 'black', 'red', 'blue', 'green', 'yellow',
-      'background', 'color', 'colour', 'shirt', 'hair', 'sky',
+      'make',
+      'change',
+      'turn',
+      'remove',
+      'replace',
+      'swap',
+      'edit',
+      'modify',
+      'adjust',
+      'convert',
+      'transform',
+      'white',
+      'black',
+      'red',
+      'blue',
+      'green',
+      'yellow',
+      'background',
+      'color',
+      'colour',
+      'shirt',
+      'hair',
+      'sky',
     ];
     return editKeywords.any(lower.contains);
   }
@@ -389,15 +411,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     color: _iconColor(m.family), size: 22),
                 title: Text(m.displayName,
                     style: TextStyle(color: AppColors.textPrimary)),
-                subtitle: Text(
-                    '${m.parametersBillions}B · ${m.quant.label}',
+                subtitle: Text('${m.parametersBillions}B · ${m.quant.label}',
                     style: TextStyle(color: AppColors.textDim, fontSize: 12)),
                 trailing: m.id == active?.id
-                    ? const Icon(Icons.check, color: AppColors.accentGreen, size: 18)
+                    ? const Icon(Icons.check,
+                        color: AppColors.accentGreen, size: 18)
                     : null,
                 onTap: () {
                   Navigator.of(context).pop();
-                  ref.read(chatControllerProvider.notifier).regenerateWithModel(m);
+                  ref
+                      .read(chatControllerProvider.notifier)
+                      .regenerateWithModel(m);
                   _scrollToBottom();
                 },
               ),
@@ -500,10 +524,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(chatControllerProvider.notifier).addUserMessage('/help');
     final lines = StringBuffer('Here are the available slash commands:\n\n');
     for (final c in _kCommands) {
-      final usage = c.argHint != null ? '/${c.name} ${c.argHint}' : '/${c.name}';
+      final usage =
+          c.argHint != null ? '/${c.name} ${c.argHint}' : '/${c.name}';
       lines.writeln('$usage — ${c.description}');
     }
-    lines.write('\nYou can also speak naturally — try "make an image of a sunset" or "draw a cat".');
+    lines.write(
+        '\nYou can also speak naturally — try "make an image of a sunset" or "draw a cat".');
     ref.read(chatControllerProvider.notifier).replyWithText(lines.toString());
     _scrollToBottom();
   }
@@ -533,16 +559,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ];
 
   static const _videoGenTriggers = [
-    'make a video of', 'generate a video of', 'create a video of',
-    'make me a video of', 'show me a video of', 'give me a video of',
-    'make a video', 'generate a video', 'create a video', 'make me a video',
-    'animate ', 'create an animation of', 'make an animation of',
-    'create an animation', 'make an animation',
+    'make a video of',
+    'generate a video of',
+    'create a video of',
+    'make me a video of',
+    'show me a video of',
+    'give me a video of',
+    'make a video',
+    'generate a video',
+    'create a video',
+    'make me a video',
+    'animate ',
+    'create an animation of',
+    'make an animation of',
+    'create an animation',
+    'make an animation',
     'video of ',
   ];
 
   // ── Image gen availability guard ─────────────────────────────────────────
-
 
   bool _isImageGenIntent(String text) {
     final lower = text.toLowerCase();
@@ -702,7 +737,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final f = result.files.first;
       final ext = (f.extension ?? '').toLowerCase();
 
-      const textExts = {'pdf', 'txt', 'csv', 'tsv', 'md', 'json', 'rtf', 'docx', 'doc', 'html', 'htm'};
+      const textExts = {
+        'pdf',
+        'txt',
+        'csv',
+        'tsv',
+        'md',
+        'json',
+        'rtf',
+        'docx',
+        'doc',
+        'html',
+        'htm'
+      };
       const audioExts = {'m4a', 'mp3', 'wav', 'caf', 'aac', 'aif', 'aiff'};
       String? extractedText;
 
@@ -716,7 +763,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             HapticFeedback.lightImpact();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('${ext.toUpperCase()} text extracted (${(extractedText.length / 1000).toStringAsFixed(0)}k chars)'),
+                content: Text(
+                    '${ext.toUpperCase()} text extracted (${(extractedText.length / 1000).toStringAsFixed(0)}k chars)'),
                 duration: const Duration(seconds: 2),
               ));
             }
@@ -739,7 +787,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             extractedText = transcript;
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Audio transcribed (${transcript.split(' ').length} words)'),
+                content: Text(
+                    'Audio transcribed (${transcript.split(' ').length} words)'),
                 duration: const Duration(seconds: 2),
               ));
             }
@@ -759,7 +808,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           name: f.name,
           localPath: f.path,
           sizeBytes: f.size,
-          mimeType: audioExts.contains(ext) ? 'audio/$ext' : (ext == 'pdf' ? 'application/pdf' : 'application/$ext'),
+          mimeType: audioExts.contains(ext)
+              ? 'audio/$ext'
+              : (ext == 'pdf' ? 'application/pdf' : 'application/$ext'),
           generationPrompt: extractedText,
         ));
       });
@@ -805,8 +856,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         setDlgState(() => variations = v ?? false),
                   ),
                   Text('Generate 4 variations',
-                      style: TextStyle(color: AppColors.textMuted,
-                          fontSize: 13)),
+                      style:
+                          TextStyle(color: AppColors.textMuted, fontSize: 13)),
                 ],
               ),
             ],
@@ -836,8 +887,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _generateVariations({required String prompt}) async {
-    ref.read(chatControllerProvider.notifier).addUserMessage(
-        '/image $prompt (×4 variations)');
+    ref
+        .read(chatControllerProvider.notifier)
+        .addUserMessage('/image $prompt (×4 variations)');
     _scrollToBottom();
 
     await _ensureSdModelLoaded();
@@ -883,7 +935,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             const SizedBox(height: 8),
             Container(
-              width: 36, height: 4,
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
                 color: AppColors.textDim,
                 borderRadius: BorderRadius.circular(2),
@@ -915,7 +968,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       sizeBytes: e.value.length,
                       generationPrompt: prompt,
                     );
-                    ref.read(chatControllerProvider.notifier)
+                    ref
+                        .read(chatControllerProvider.notifier)
                         .sendGeneratedAttachment(
                           caption: '',
                           attachment: attachment,
@@ -929,7 +983,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       children: [
                         Image.memory(e.value, fit: BoxFit.cover),
                         Positioned(
-                          bottom: 4, right: 4,
+                          bottom: 4,
+                          right: 4,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
@@ -1000,9 +1055,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               if (prompt.isEmpty) return;
               Navigator.pop(context);
               _generateImage(
-                  prompt: prompt,
-                  userText: '/video $prompt',
-                  isVideo: true);
+                  prompt: prompt, userText: '/video $prompt', isVideo: true);
             },
             child: const Text('Generate'),
           ),
@@ -1051,7 +1104,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: const Text('Preview — go to Settings › Image Generation to install a real model'),
+            content: const Text(
+                'Preview — go to Settings › Image Generation to install a real model'),
             action: SnackBarAction(
               label: 'Install',
               onPressed: () => Navigator.of(context).push(
@@ -1096,9 +1150,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
         // Empty caption — the image speaks for itself
         ref.read(chatControllerProvider.notifier).sendGeneratedAttachment(
-          caption: isReal ? '' : 'Preview — install a model for real AI generation',
-          attachment: attachment,
-        );
+              caption: isReal
+                  ? ''
+                  : 'Preview — install a model for real AI generation',
+              attachment: attachment,
+            );
         _scrollToBottom();
       }
     } catch (e) {
@@ -1133,8 +1189,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       (evt) {
         if (evt is VoiceTranscriptEvent) {
           _inputCtrl.text = evt.text;
-          _inputCtrl.selection = TextSelection.collapsed(
-              offset: _inputCtrl.text.length);
+          _inputCtrl.selection =
+              TextSelection.collapsed(offset: _inputCtrl.text.length);
           if (evt.isFinal) {
             _stopListening();
             if (evt.text.trim().isNotEmpty) _send();
@@ -1286,7 +1342,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final starterDl = downloads[kStarterModelId];
     final isAutoDownloading = starterDl != null &&
         (starterDl.status == DownloadStatus.downloading ||
-         llamaStatus == LlamaStatus.loading && activeModel == null);
+            llamaStatus == LlamaStatus.loading && activeModel == null);
 
     final isIPad = MediaQuery.sizeOf(context).shortestSide >= 600;
 
@@ -1302,7 +1358,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       progress: starterDl.progress,
                       isLoading: llamaStatus == LlamaStatus.loading,
                       receivedMb: starterDl.receivedBytes / 1e6,
-                      totalMb: (starterDl.totalBytes == 0 ? 1 : starterDl.totalBytes) / 1e6,
+                      totalMb: (starterDl.totalBytes == 0
+                              ? 1
+                              : starterDl.totalBytes) /
+                          1e6,
                     )
                   : _WelcomeView(onModelTap: () => ModelsScreen.open(context))
               : _MessageList(
@@ -1360,8 +1419,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             MaterialPageRoute(builder: (_) => const SettingsScreen()),
           ),
           onVoiceModeTap: () => VoiceModeScreen.open(context),
-          onNewChat: () =>
-              ref.read(chatControllerProvider.notifier).newChat(),
+          onNewChat: () => ref.read(chatControllerProvider.notifier).newChat(),
         ),
         body: Row(
           children: [
@@ -1370,7 +1428,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.surfaceSidebar,
-                  border: Border(right: BorderSide(color: AppColors.borderDefault)),
+                  border:
+                      Border(right: BorderSide(color: AppColors.borderDefault)),
                 ),
                 child: const HistoryDrawer(embedded: true),
               ),
@@ -1392,8 +1451,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           MaterialPageRoute(builder: (_) => const SettingsScreen()),
         ),
         onVoiceModeTap: () => VoiceModeScreen.open(context),
-        onNewChat: () =>
-            ref.read(chatControllerProvider.notifier).newChat(),
+        onNewChat: () => ref.read(chatControllerProvider.notifier).newChat(),
       ),
       body: chatBody,
     );
@@ -1560,8 +1618,7 @@ class _ErrorBar extends ConsumerWidget {
                     .copyWith(color: const Color(0xFFFCA5A5))),
           ),
           GestureDetector(
-            onTap: () =>
-                ref.read(chatControllerProvider.notifier).clearError(),
+            onTap: () => ref.read(chatControllerProvider.notifier).clearError(),
             child: const Icon(Icons.close, size: 16, color: Color(0xFFFCA5A5)),
           ),
         ],
@@ -1594,7 +1651,10 @@ class _ModelStatusBanner extends ConsumerWidget {
     if (active != null) {
       String? modelName;
       for (final m in kModelCatalogue) {
-        if (m.id == active.key) { modelName = m.displayName; break; }
+        if (m.id == active.key) {
+          modelName = m.displayName;
+          break;
+        }
       }
       final pct = (active.value.progress * 100).toStringAsFixed(0);
       label = 'Downloading ${modelName ?? 'model'}…  $pct%';
@@ -1773,8 +1833,8 @@ class _WelcomeView extends StatelessWidget {
               color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(Icons.memory,
-                color: AppColors.surfaceSidebar, size: 30),
+            child:
+                Icon(Icons.memory, color: AppColors.surfaceSidebar, size: 30),
           ),
           const SizedBox(height: 20),
           Text('PintSizeAi', style: AppTypography.wordmark),
@@ -1790,12 +1850,14 @@ class _WelcomeView extends StatelessWidget {
             runSpacing: 8,
             alignment: WrapAlignment.center,
             children: const [
-              _FeatureChip(icon: Icons.lock_outline, label: 'No internet needed'),
+              _FeatureChip(
+                  icon: Icons.lock_outline, label: 'No internet needed'),
               _FeatureChip(icon: Icons.mic_none, label: 'Siri integration'),
               _FeatureChip(icon: Icons.speed, label: 'Runs on-chip'),
               _FeatureChip(icon: Icons.attach_file, label: 'Photos & files'),
               _FeatureChip(icon: Icons.image_outlined, label: 'AI image gen'),
-              _FeatureChip(icon: Icons.visibility_off_outlined, label: 'Fully private'),
+              _FeatureChip(
+                  icon: Icons.visibility_off_outlined, label: 'Fully private'),
             ],
           ),
           const SizedBox(height: 40),
@@ -1933,14 +1995,13 @@ class _MessageList extends ConsumerWidget {
                             }
                           : null,
                       // Only offer "try another model" on the last message.
-                      onRegenerateWithModel:
-                          i == messages.length - 1 && i > 0 && messages[i - 1].isUser
-                              ? onRegenerateWithModel
-                              : null,
+                      onRegenerateWithModel: i == messages.length - 1 &&
+                              i > 0 &&
+                              messages[i - 1].isUser
+                          ? onRegenerateWithModel
+                          : null,
                       onBranch: () {
-                        ref
-                            .read(chatControllerProvider.notifier)
-                            .branchAt(i);
+                        ref.read(chatControllerProvider.notifier).branchAt(i);
                         ScaffoldMessenger.of(context)
                           ..hideCurrentSnackBar()
                           ..showSnackBar(const SnackBar(
@@ -1963,7 +2024,7 @@ class _MessageList extends ConsumerWidget {
       ModelFamily.qwen => AppColors.modelPurple,
       ModelFamily.deepseek => AppColors.modelBlue,
       ModelFamily.smollm => AppColors.modelSurface,
-        ModelFamily.lfm => AppColors.modelGreen,
+      ModelFamily.lfm => AppColors.modelGreen,
       null => AppColors.modelSurface,
     };
     final icon = switch (model?.family) {
@@ -1974,7 +2035,7 @@ class _MessageList extends ConsumerWidget {
       ModelFamily.qwen => Icons.waves,
       ModelFamily.deepseek => Icons.psychology_outlined,
       ModelFamily.smollm => Icons.bubble_chart_outlined,
-        ModelFamily.lfm => Icons.water_drop_outlined,
+      ModelFamily.lfm => Icons.water_drop_outlined,
       null => Icons.memory_outlined,
     };
     return ModelIcon(color: color, icon: icon, size: size);
@@ -2024,7 +2085,8 @@ class _ImageGenProgressRow extends StatelessWidget {
                       height: 14,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(AppColors.accentGreen),
+                        valueColor:
+                            AlwaysStoppedAnimation(AppColors.accentGreen),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -2058,7 +2120,8 @@ class _ImageGenProgressRow extends StatelessWidget {
                       value: progress,
                       minHeight: 3,
                       backgroundColor: AppColors.surfaceActive,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.accentGreen),
+                      valueColor:
+                          const AlwaysStoppedAnimation(AppColors.accentGreen),
                     ),
                   ),
                 ],
@@ -2201,8 +2264,7 @@ class _CommandSuggestionBar extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(Icons.keyboard_tab,
-                      size: 14, color: AppColors.textDim),
+                  Icon(Icons.keyboard_tab, size: 14, color: AppColors.textDim),
                 ],
               ),
             ),
@@ -2252,8 +2314,7 @@ class _AttachmentPickerSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            Text('Attach or Create',
-                style: AppTypography.sheetTitle),
+            Text('Attach or Create', style: AppTypography.sheetTitle),
             const SizedBox(height: 16),
 
             // Grid of options

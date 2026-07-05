@@ -51,7 +51,8 @@ class UrlFetchService {
   /// alone only catches literal IPs.
   static Future<bool> isSafeUrlResolved(Uri uri) async {
     if (!isSafeUrl(uri)) return false;
-    if (InternetAddress.tryParse(uri.host) != null) return true; // literal, already vetted
+    if (InternetAddress.tryParse(uri.host) != null)
+      return true; // literal, already vetted
     try {
       final addrs = await InternetAddress.lookup(uri.host)
           .timeout(const Duration(seconds: 5));
@@ -121,12 +122,23 @@ class UrlFetchService {
   static String _stripHtml(String html) {
     // Remove script, style, head blocks
     var s = html
-        .replaceAll(RegExp(r'<script[^>]*>.*?</script>', dotAll: true, caseSensitive: false), '')
-        .replaceAll(RegExp(r'<style[^>]*>.*?</style>', dotAll: true, caseSensitive: false), '')
-        .replaceAll(RegExp(r'<head[^>]*>.*?</head>', dotAll: true, caseSensitive: false), '');
+        .replaceAll(
+            RegExp(r'<script[^>]*>.*?</script>',
+                dotAll: true, caseSensitive: false),
+            '')
+        .replaceAll(
+            RegExp(r'<style[^>]*>.*?</style>',
+                dotAll: true, caseSensitive: false),
+            '')
+        .replaceAll(
+            RegExp(r'<head[^>]*>.*?</head>',
+                dotAll: true, caseSensitive: false),
+            '');
     // Replace block elements with newlines
     s = s.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
-    s = s.replaceAll(RegExp(r'</(p|div|li|h[1-6]|tr|blockquote)>', caseSensitive: false), '\n');
+    s = s.replaceAll(
+        RegExp(r'</(p|div|li|h[1-6]|tr|blockquote)>', caseSensitive: false),
+        '\n');
     // Strip remaining tags
     s = s.replaceAll(RegExp(r'<[^>]+>'), '');
     // Decode common HTML entities

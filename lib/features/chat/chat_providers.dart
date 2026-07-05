@@ -3,8 +3,7 @@ import '../models/model_providers.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
 
-final chatControllerProvider =
-    StateNotifierProvider<ChatController, ChatState>(
+final chatControllerProvider = StateNotifierProvider<ChatController, ChatState>(
   (ref) => ChatController(ref),
 );
 

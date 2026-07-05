@@ -11,7 +11,8 @@ class MediaService {
 
   Future<String?> analyzeImage(Uint8List bytes) async {
     try {
-      return await _method.invokeMethod<String>('analyzeImage', {'bytes': bytes});
+      return await _method
+          .invokeMethod<String>('analyzeImage', {'bytes': bytes});
     } catch (_) {
       return null;
     }
@@ -48,7 +49,8 @@ class MediaService {
   /// iOS SFSpeechRecognizer. Returns null if no speech detected.
   Future<String?> transcribeAudio(String path) async {
     try {
-      return await _method.invokeMethod<String>('transcribeAudio', {'path': path});
+      return await _method
+          .invokeMethod<String>('transcribeAudio', {'path': path});
     } on PlatformException catch (e) {
       if (e.code == 'NO_SPEECH' || e.code == 'PERMISSION_DENIED') return null;
       return null;

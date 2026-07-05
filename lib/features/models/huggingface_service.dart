@@ -48,8 +48,7 @@ class HuggingFaceService {
     connectTimeout: const Duration(seconds: 8),
     receiveTimeout: const Duration(seconds: 12),
     headers: {
-      'User-Agent':
-          'PintSizeAi/1.0 (https://github.com/Zman2087/PintSizeAI)',
+      'User-Agent': 'PintSizeAi/1.0 (https://github.com/Zman2087/PintSizeAI)',
     },
   ));
 
@@ -68,16 +67,19 @@ class HuggingFaceService {
         },
       );
       final list = (resp.data as List?) ?? const [];
-      return list.map((e) {
-        final m = (e as Map).cast<String, dynamic>();
-        return HFRepo(
-          id: m['id'] as String? ?? m['modelId'] as String? ?? '',
-          downloads: (m['downloads'] as num?)?.toInt() ?? 0,
-          likes: (m['likes'] as num?)?.toInt() ?? 0,
-          lastModified: (m['lastModified'] as String?) ?? '',
-          tags: (m['tags'] as List?)?.map((t) => '$t').toList() ?? const [],
-        );
-      }).where((r) => r.id.isNotEmpty).toList();
+      return list
+          .map((e) {
+            final m = (e as Map).cast<String, dynamic>();
+            return HFRepo(
+              id: m['id'] as String? ?? m['modelId'] as String? ?? '',
+              downloads: (m['downloads'] as num?)?.toInt() ?? 0,
+              likes: (m['likes'] as num?)?.toInt() ?? 0,
+              lastModified: (m['lastModified'] as String?) ?? '',
+              tags: (m['tags'] as List?)?.map((t) => '$t').toList() ?? const [],
+            );
+          })
+          .where((r) => r.id.isNotEmpty)
+          .toList();
     } catch (_) {
       return [];
     }
@@ -127,8 +129,7 @@ class HuggingFaceService {
     final params = _parseParams(repo.name);
     final quant = _parseQuant(file.quantLabel);
     final ramBytes = (file.sizeBytes * 1.18).round();
-    final url =
-        'https://huggingface.co/${repo.id}/resolve/main/${file.path}';
+    final url = 'https://huggingface.co/${repo.id}/resolve/main/${file.path}';
     // Stable id derived from repo + file so re-adds dedupe and persist works.
     final id = 'hf_${repo.id}_${file.path}'
         .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')

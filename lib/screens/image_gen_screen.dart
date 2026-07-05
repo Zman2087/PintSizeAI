@@ -75,7 +75,8 @@ class _InfoCard extends StatelessWidget {
                 Text(
                   isReady ? 'Image generation ready' : 'No model loaded',
                   style: AppTypography.modelName.copyWith(
-                    color: isReady ? AppColors.accentGreen : AppColors.textDefault,
+                    color:
+                        isReady ? AppColors.accentGreen : AppColors.textDefault,
                   ),
                 ),
                 Text(
@@ -103,7 +104,8 @@ class _ModelCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isThisModel = status.loadedModelId == model.id;
-    final isDownloading = isThisModel && status.state == SDModelState.downloading;
+    final isDownloading =
+        isThisModel && status.state == SDModelState.downloading;
     final isExtracting = isThisModel && status.state == SDModelState.extracting;
     final isReady = isThisModel && status.state == SDModelState.ready;
     final isLoading = isThisModel && status.state == SDModelState.loading;
@@ -155,8 +157,8 @@ class _ModelCard extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text('Active',
-                                style: AppTypography.badge.copyWith(
-                                    color: AppColors.accentGreen)),
+                                style: AppTypography.badge
+                                    .copyWith(color: AppColors.accentGreen)),
                           ),
                         ],
                       ],
@@ -211,7 +213,8 @@ class _ModelCard extends ConsumerWidget {
                     child: LinearProgressIndicator(
                       value: isExtracting ? null : status.downloadProgress,
                       backgroundColor: AppColors.surfaceActive,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.accentGreen),
+                      valueColor:
+                          const AlwaysStoppedAnimation(AppColors.accentGreen),
                       minHeight: 6,
                     ),
                   ),
@@ -227,7 +230,8 @@ class _ModelCard extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () => ref.read(sdModelProvider.notifier).cancelDownload(),
+              onPressed: () =>
+                  ref.read(sdModelProvider.notifier).cancelDownload(),
               style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFFE57373),
                   padding: EdgeInsets.zero,
@@ -316,8 +320,7 @@ class _PerformanceWarning extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.timer_outlined,
-              size: 18, color: Color(0xFFFF9800)),
+          const Icon(Icons.timer_outlined, size: 18, color: Color(0xFFFF9800)),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -360,8 +363,7 @@ class _HowItWorksCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline,
-                  color: AppColors.textMuted, size: 16),
+              Icon(Icons.info_outline, color: AppColors.textMuted, size: 16),
               const SizedBox(width: 8),
               Text('How it works', style: AppTypography.modelName),
             ],
@@ -411,8 +413,7 @@ class _Chip extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: c.withAlpha(50)),
       ),
-      child: Text(label,
-          style: AppTypography.badge.copyWith(color: c)),
+      child: Text(label, style: AppTypography.badge.copyWith(color: c)),
     );
   }
 }

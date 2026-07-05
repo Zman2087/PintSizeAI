@@ -49,8 +49,7 @@ class _HtmlSandboxScreenState extends State<HtmlSandboxScreen> {
   // Belt-and-braces on top of the navigation lockdown: inline script/style
   // may run (that's the point of the sandbox), but the document gets no
   // network access — no fetch/XHR/websockets, no remote images or fonts.
-  static const _csp =
-      '<meta http-equiv="Content-Security-Policy" content="'
+  static const _csp = '<meta http-equiv="Content-Security-Policy" content="'
       "default-src 'none'; style-src 'unsafe-inline'; "
       "script-src 'unsafe-inline'; img-src data: blob:; "
       'font-src data:; media-src data: blob:;">';

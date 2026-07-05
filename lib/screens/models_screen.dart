@@ -116,7 +116,8 @@ class _ModelRow extends ConsumerWidget {
                   value: dl.totalBytes > 0 ? dl.progress : null,
                   minHeight: 4,
                   backgroundColor: AppColors.surfaceActive,
-                  valueColor: const AlwaysStoppedAnimation(AppColors.accentGreen),
+                  valueColor:
+                      const AlwaysStoppedAnimation(AppColors.accentGreen),
                 ),
               ),
               const SizedBox(height: 6),
@@ -177,8 +178,7 @@ class _StatusAction extends ConsumerWidget {
           },
         );
       default:
-        return Icon(Icons.chevron_right,
-            size: 18, color: AppColors.textDim);
+        return Icon(Icons.chevron_right, size: 18, color: AppColors.textDim);
     }
   }
 }
@@ -197,20 +197,18 @@ class _OnDeviceTab extends ConsumerWidget {
 
     // On device = downloaded, currently downloading, or the active model — so
     // in-progress downloads are trackable here with a live progress bar.
-    final installed = ranked
-        .map((p) => p.model)
-        .where((m) {
-          final s = downloads[m.id]?.status;
-          return s == DownloadStatus.downloaded ||
-              s == DownloadStatus.downloading ||
-              m.id == active?.id;
-        })
-        .toList();
+    final installed = ranked.map((p) => p.model).where((m) {
+      final s = downloads[m.id]?.status;
+      return s == DownloadStatus.downloaded ||
+          s == DownloadStatus.downloading ||
+          m.id == active?.id;
+    }).toList();
 
     if (installed.isEmpty) {
       return const _Empty(
         icon: Icons.download_done_outlined,
-        text: 'No models on your device yet.\nInstall one from Recommended or Discover.',
+        text:
+            'No models on your device yet.\nInstall one from Recommended or Discover.',
       );
     }
     return ListView(
@@ -260,7 +258,8 @@ class _OnDeviceTab extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Color(0xFFEF4444))),
+            child: const Text('Delete',
+                style: TextStyle(color: Color(0xFFEF4444))),
           ),
         ],
       ),
@@ -281,7 +280,8 @@ class _RecommendedTab extends ConsumerWidget {
 
     return rankedAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => _Empty(icon: Icons.error_outline, text: 'Could not load: $e'),
+      error: (e, _) =>
+          _Empty(icon: Icons.error_outline, text: 'Could not load: $e'),
       data: (ranked) {
         // Fitting, built-in models first; hide user-imported ones here.
         final list = ranked
@@ -344,7 +344,8 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
             decoration: InputDecoration(
               hintText: 'Search Hugging Face…',
               hintStyle: TextStyle(color: AppColors.textDim),
-              prefixIcon: Icon(Icons.search, color: AppColors.textDim, size: 20),
+              prefixIcon:
+                  Icon(Icons.search, color: AppColors.textDim, size: 20),
               filled: true,
               fillColor: AppColors.surfaceOverlay,
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -366,7 +367,8 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
               if (repos.isEmpty) {
                 return const _Empty(
                     icon: Icons.cloud_off_outlined,
-                    text: 'No results. Check your connection or try another search.');
+                    text:
+                        'No results. Check your connection or try another search.');
               }
               return ListView.builder(
                 itemCount: repos.length,
@@ -387,12 +389,13 @@ class _HFRepoRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final caps = capabilityTags(
-      HuggingFaceService.toModelVariant(repo,
-          const HFFile(path: '', sizeBytes: 0)),
+      HuggingFaceService.toModelVariant(
+          repo, const HFFile(path: '', sizeBytes: 0)),
       hfTags: repo.tags,
     );
-    final updated =
-        repo.lastModified.length >= 10 ? repo.lastModified.substring(0, 10) : '';
+    final updated = repo.lastModified.length >= 10
+        ? repo.lastModified.substring(0, 10)
+        : '';
     return InkWell(
       onTap: () => _showQuants(context, ref),
       child: Container(
@@ -532,7 +535,8 @@ class _QuantSheetState extends ConsumerState<_QuantSheet> {
 
   static String _quantPlainName(String q) {
     final u = q.toUpperCase();
-    if (u.startsWith('Q2') || u.startsWith('IQ2')) return 'Smallest (lowest quality)';
+    if (u.startsWith('Q2') || u.startsWith('IQ2'))
+      return 'Smallest (lowest quality)';
     if (u.startsWith('Q3') || u.startsWith('IQ3')) return 'Small & fast';
     if (u.startsWith('Q4') || u.startsWith('IQ4')) return 'Balanced';
     if (u.startsWith('Q5')) return 'Higher quality';
@@ -598,7 +602,9 @@ class _QuantSheetState extends ConsumerState<_QuantSheet> {
                         ),
                         if (recommended) ...[
                           const SizedBox(width: 8),
-                          _Pill(text: 'Recommended', color: AppColors.accentGreen),
+                          _Pill(
+                              text: 'Recommended',
+                              color: AppColors.accentGreen),
                         ],
                       ],
                     ),
@@ -606,7 +612,8 @@ class _QuantSheetState extends ConsumerState<_QuantSheet> {
                       padding: EdgeInsets.only(top: 4),
                       child: Row(
                         children: [
-                          Text('${f.quantLabel} · ${(f.sizeBytes / 1e9).toStringAsFixed(2)} GB',
+                          Text(
+                              '${f.quantLabel} · ${(f.sizeBytes / 1e9).toStringAsFixed(2)} GB',
                               style: TextStyle(
                                   color: AppColors.textMuted, fontSize: 12)),
                           if (fit != null) ...[
@@ -654,7 +661,8 @@ class _ImageModelsTab extends ConsumerWidget {
               'On-device Stable Diffusion — create images from text, fully offline.',
               style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
         ),
-        for (final m in kSDModelCatalogue) _SDModelRow(model: m, status: status),
+        for (final m in kSDModelCatalogue)
+          _SDModelRow(model: m, status: status),
         Padding(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
           child: Text(
@@ -662,7 +670,8 @@ class _ImageModelsTab extends ConsumerWidget {
               'Unlike text models, on-device image generation needs specially '
               'compiled models, so the list is intentionally short — other '
               'Stable Diffusion models from the web won\'t run on iOS.',
-              style: TextStyle(color: AppColors.textDim, fontSize: 11, height: 1.4)),
+              style: TextStyle(
+                  color: AppColors.textDim, fontSize: 11, height: 1.4)),
         ),
       ],
     );
@@ -690,19 +699,25 @@ class _SDModelRow extends ConsumerWidget {
           progress = _sdProgress('Extracting', null);
           action = const SizedBox.shrink();
         case SDModelState.ready:
-          action = _MonoButton(label: 'Load', onTap: () => notifier.loadModel(model));
+          action = _MonoButton(
+              label: 'Load', onTap: () => notifier.loadModel(model));
         case SDModelState.loading:
           action = const SizedBox(
-              width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2));
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2));
         case SDModelState.loaded:
           action = _Pill(text: 'Active', color: AppColors.textPrimary);
         case SDModelState.error:
-          action = _MonoButton(label: 'Retry', onTap: () => notifier.download(model));
+          action = _MonoButton(
+              label: 'Retry', onTap: () => notifier.download(model));
         default:
-          action = _MonoButton(label: 'Download', onTap: () => notifier.download(model));
+          action = _MonoButton(
+              label: 'Download', onTap: () => notifier.download(model));
       }
     } else {
-      action = _MonoButton(label: 'Download', onTap: () => notifier.download(model));
+      action =
+          _MonoButton(label: 'Download', onTap: () => notifier.download(model));
     }
 
     return Container(
@@ -726,11 +741,13 @@ class _SDModelRow extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text('${model.sizeLabel} · needs ${model.minRamGb}GB RAM · ${model.minIphone}+',
+          Text(
+              '${model.sizeLabel} · needs ${model.minRamGb}GB RAM · ${model.minIphone}+',
               style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
           const SizedBox(height: 8),
           Text(model.description,
-              style: TextStyle(color: AppColors.textDim, fontSize: 12, height: 1.35)),
+              style: TextStyle(
+                  color: AppColors.textDim, fontSize: 12, height: 1.35)),
           if (progress != null) ...[const SizedBox(height: 10), progress],
         ],
       ),

@@ -113,7 +113,8 @@ class LocalImageGenMock implements LocalImageGen {
       for (int x = 0; x < w; x++) {
         final hBlend = x / w;
         image.setPixelRgb(
-          x, y,
+          x,
+          y,
           (r + hBlend * 30).round().clamp(0, 255),
           (g - hBlend * 10).round().clamp(0, 255),
           (b + hBlend * 20).round().clamp(0, 255),
@@ -135,7 +136,8 @@ class LocalImageGenMock implements LocalImageGen {
       for (int x = 0; x < w; x++) {
         final px = image.getPixel(x, y);
         image.setPixelRgb(
-          x, y,
+          x,
+          y,
           (px.r + 8).clamp(0, 255).toInt(),
           (px.g + 8).clamp(0, 255).toInt(),
           (px.b + 8).clamp(0, 255).toInt(),
@@ -149,7 +151,8 @@ class LocalImageGenMock implements LocalImageGen {
     return Uint8List.fromList(img.encodePng(image));
   }
 
-  static void _drawSoftCircle(img.Image im, int cx, int cy, int r, int w, int h) {
+  static void _drawSoftCircle(
+      img.Image im, int cx, int cy, int r, int w, int h) {
     final x0 = (cx - r).clamp(0, w - 1);
     final x1 = (cx + r).clamp(0, w - 1);
     final y0 = (cy - r).clamp(0, h - 1);
@@ -161,7 +164,8 @@ class LocalImageGenMock implements LocalImageGen {
           final alpha = ((1 - dist / r) * 0.12).clamp(0.0, 1.0);
           final px = im.getPixel(x, y);
           im.setPixelRgb(
-            x, y,
+            x,
+            y,
             (px.r + 255 * alpha).clamp(0, 255).toInt(),
             (px.g + 255 * alpha).clamp(0, 255).toInt(),
             (px.b + 255 * alpha).clamp(0, 255).toInt(),
@@ -212,7 +216,8 @@ class LocalImageGenMock implements LocalImageGen {
       for (var x = 0; x < source.width; x++) {
         final px = source.getPixel(x, y);
         source.setPixelRgba(
-          x, y,
+          x,
+          y,
           (px.r.toInt() + (tintR * strength).round()).clamp(0, 255),
           (px.g.toInt() + (tintG * strength).round()).clamp(0, 255),
           (px.b.toInt() + (tintB * strength).round()).clamp(0, 255),

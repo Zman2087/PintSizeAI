@@ -9,7 +9,15 @@ import 'package:dio/dio.dart';
 import 'image_gen_real.dart';
 import 'sd_model_catalogue.dart';
 
-enum SDModelState { notDownloaded, downloading, extracting, ready, loading, loaded, error }
+enum SDModelState {
+  notDownloaded,
+  downloading,
+  extracting,
+  ready,
+  loading,
+  loaded,
+  error
+}
 
 class SDModelStatus {
   const SDModelStatus({
@@ -47,8 +55,7 @@ class SDModelNotifier extends StateNotifier<SDModelStatus> {
   final LocalImageGenReal _gen;
   final _dio = Dio(BaseOptions(
     headers: {
-      'User-Agent':
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
           'AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
     },
     followRedirects: true,
@@ -218,7 +225,8 @@ class SDModelNotifier extends StateNotifier<SDModelStatus> {
       // Find the actual .mlmodelc directory inside the extracted folder
       final modelDir = _findModelDir(path) ?? path;
       await _gen.loadModel(modelDir);
-      state = SDModelStatus(state: SDModelState.loaded, loadedModelId: model.id);
+      state =
+          SDModelStatus(state: SDModelState.loaded, loadedModelId: model.id);
     } catch (e) {
       state = SDModelStatus(
         state: SDModelState.error,

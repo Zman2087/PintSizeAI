@@ -35,19 +35,15 @@ class VoiceService {
 
   // ── STT ──────────────────────────────────────────────────────────────────────
 
-  Future<void> startListening() =>
-      _method.invokeMethod<void>('startListening');
+  Future<void> startListening() => _method.invokeMethod<void>('startListening');
 
-  Future<void> stopListening() =>
-      _method.invokeMethod<void>('stopListening');
+  Future<void> stopListening() => _method.invokeMethod<void>('stopListening');
 
   // ── TTS ──────────────────────────────────────────────────────────────────────
 
-  Future<void> speak(String text) =>
-      _method.invokeMethod<void>('speak', text);
+  Future<void> speak(String text) => _method.invokeMethod<void>('speak', text);
 
-  Future<void> stopSpeaking() =>
-      _method.invokeMethod<void>('stopSpeaking');
+  Future<void> stopSpeaking() => _method.invokeMethod<void>('stopSpeaking');
 
   Future<bool> get isSpeaking async =>
       await _method.invokeMethod<bool>('isSpeaking') ?? false;
@@ -82,11 +78,13 @@ class VoiceService {
   /// Current Personal Voice authorization: authorized/denied/notDetermined/
   /// unsupported.
   Future<String> personalVoiceStatus() async =>
-      await _method.invokeMethod<String>('personalVoiceStatus') ?? 'unsupported';
+      await _method.invokeMethod<String>('personalVoiceStatus') ??
+      'unsupported';
 
   /// Prompts the user to allow this app to use their Personal Voice.
   Future<String> requestPersonalVoice() async =>
-      await _method.invokeMethod<String>('requestPersonalVoice') ?? 'unsupported';
+      await _method.invokeMethod<String>('requestPersonalVoice') ??
+      'unsupported';
 
   /// Opens the iOS Settings app (to create a Personal Voice under Accessibility).
   Future<void> openSettings() => _method.invokeMethod<void>('openSettings');

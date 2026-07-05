@@ -30,8 +30,7 @@ class _HistoryDrawerState extends ConsumerState<HistoryDrawer> {
         : allSessions.where((s) {
             final q = _query.toLowerCase();
             if (s.displayTitle.toLowerCase().contains(q)) return true;
-            return s.messages
-                .any((m) => m.content.toLowerCase().contains(q));
+            return s.messages.any((m) => m.content.toLowerCase().contains(q));
           }).toList();
     // Pinned sessions float to the top, preserving relative order otherwise.
     final filtered = [
@@ -63,8 +62,8 @@ class _HistoryDrawerState extends ConsumerState<HistoryDrawer> {
               decoration: InputDecoration(
                 hintText: 'Search conversations…',
                 hintStyle: AppTypography.sidebarSubtitle,
-                prefixIcon: Icon(Icons.search,
-                    size: 16, color: AppColors.textDim),
+                prefixIcon:
+                    Icon(Icons.search, size: 16, color: AppColors.textDim),
                 suffixIcon: _query.isNotEmpty
                     ? GestureDetector(
                         onTap: () => setState(() => _query = ''),
@@ -78,8 +77,8 @@ class _HistoryDrawerState extends ConsumerState<HistoryDrawer> {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 isDense: true,
               ),
             ),
@@ -110,15 +109,15 @@ class _HistoryDrawerState extends ConsumerState<HistoryDrawer> {
                     onDelete: () => ref
                         .read(chatControllerProvider.notifier)
                         .deleteSession(session.id),
-                    onExport: () => _export(session.messages,
-                        session.displayTitle),
-                    onExportPdf: () => _exportPdf(session.messages,
-                        session.displayTitle),
+                    onExport: () =>
+                        _export(session.messages, session.displayTitle),
+                    onExportPdf: () =>
+                        _exportPdf(session.messages, session.displayTitle),
                     onPin: () => ref
                         .read(chatControllerProvider.notifier)
                         .togglePin(session.id),
-                    onRename: () => _showRenameDialog(
-                        session.id, session.displayTitle),
+                    onRename: () =>
+                        _showRenameDialog(session.id, session.displayTitle),
                   );
                 },
               ),
@@ -159,7 +158,8 @@ class _HistoryDrawerState extends ConsumerState<HistoryDrawer> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceOverlay,
-        title: Text('Rename chat', style: TextStyle(color: AppColors.textPrimary)),
+        title:
+            Text('Rename chat', style: TextStyle(color: AppColors.textPrimary)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
@@ -169,15 +169,16 @@ class _HistoryDrawerState extends ConsumerState<HistoryDrawer> {
             hintStyle: TextStyle(color: AppColors.textDim),
           ),
           onSubmitted: (v) {
-            ref.read(chatControllerProvider.notifier).renameSession(sessionId, v);
+            ref
+                .read(chatControllerProvider.notifier)
+                .renameSession(sessionId, v);
             Navigator.of(ctx).pop();
           },
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel',
-                style: TextStyle(color: AppColors.textMuted)),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
           ),
           TextButton(
             onPressed: () {
@@ -212,8 +213,8 @@ class _Header extends StatelessWidget {
               color: AppColors.white,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.memory,
-                color: AppColors.surfaceSidebar, size: 16),
+            child:
+                Icon(Icons.memory, color: AppColors.surfaceSidebar, size: 16),
           ),
           const SizedBox(width: 10),
           Expanded(child: Text('PintSizeAi', style: AppTypography.wordmark)),
@@ -285,7 +286,8 @@ class _SessionTile extends StatelessWidget {
               if (isPinned)
                 Padding(
                   padding: EdgeInsets.only(left: 4),
-                  child: Icon(Icons.push_pin, size: 12, color: AppColors.textDim),
+                  child:
+                      Icon(Icons.push_pin, size: 12, color: AppColors.textDim),
                 ),
               if (isActive)
                 GestureDetector(
@@ -334,8 +336,7 @@ class _SessionTile extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: Icon(
-                  isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+              leading: Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined,
                   color: AppColors.textMuted),
               title: Text(isPinned ? 'Unpin' : 'Pin to top',
                   style: AppTypography.sidebarTitle),
@@ -345,8 +346,7 @@ class _SessionTile extends StatelessWidget {
               },
             ),
             ListTile(
-              leading:
-                  Icon(Icons.share_outlined, color: AppColors.textMuted),
+              leading: Icon(Icons.share_outlined, color: AppColors.textMuted),
               title: Text('Share as text', style: AppTypography.sidebarTitle),
               onTap: () {
                 Navigator.pop(context);
@@ -363,8 +363,8 @@ class _SessionTile extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline,
-                  color: Color(0xFFEF4444)),
+              leading:
+                  const Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
               title: Text('Delete',
                   style: AppTypography.sidebarTitle
                       .copyWith(color: const Color(0xFFEF4444))),
@@ -397,8 +397,7 @@ class _Footer extends StatelessWidget {
               color: AppColors.accentGreen,
               borderRadius: BorderRadius.circular(16),
             ),
-            child:
-                const Icon(Icons.person, size: 18, color: AppColors.white),
+            child: const Icon(Icons.person, size: 18, color: AppColors.white),
           ),
           const SizedBox(width: 10),
           Column(

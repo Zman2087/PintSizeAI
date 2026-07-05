@@ -23,7 +23,8 @@ import 'model_storage_service.dart';
 /// don't waste bandwidth grabbing the tiny starter first.
 final firstLaunchSetupProvider = FutureProvider<void>((ref) async {
   final settings = ref.read(settingsServiceProvider);
-  if (!await settings.getOnboardingComplete()) return; // onboarding will handle it
+  if (!await settings.getOnboardingComplete())
+    return; // onboarding will handle it
 
   final storage = ref.read(modelStorageProvider);
   final downloaded = await storage.downloadedModelIds();
@@ -72,8 +73,7 @@ final downloadStatesProvider =
   (ref) => DownloadStatesNotifier(ref),
 );
 
-class DownloadStatesNotifier
-    extends StateNotifier<Map<String, DownloadState>> {
+class DownloadStatesNotifier extends StateNotifier<Map<String, DownloadState>> {
   DownloadStatesNotifier(this._ref) : super({}) {
     _init();
   }
@@ -91,10 +91,7 @@ class DownloadStatesNotifier
     };
 
     // Subscribe to live download events
-    _sub = _ref
-        .read(modelDownloadProvider)
-        .progressStream
-        .listen((entry) {
+    _sub = _ref.read(modelDownloadProvider).progressStream.listen((entry) {
       state = {...state, entry.key: entry.value};
     });
   }
@@ -148,7 +145,8 @@ class ModelActions {
   /// Download (if needed) then load [model] into the inference engine.
   Future<void> loadModel(ModelVariant model) async {
     if (_loading) {
-      DiagLog.log('loadModel id=${model.id} SKIPPED (a load is already running)');
+      DiagLog.log(
+          'loadModel id=${model.id} SKIPPED (a load is already running)');
       return;
     }
     _loading = true;
@@ -181,15 +179,19 @@ class ModelActions {
       if (!await isComplete()) {
         DiagLog.log('loadModel id=${model.id} DOWNLOAD INCOMPLETE');
         // Remove the bad/partial file so a retry starts clean.
-        try { await storage.delete(model.id); } catch (_) {}
+        try {
+          await storage.delete(model.id);
+        } catch (_) {}
         _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.error;
-        throw Exception('Download did not finish. Check your connection and try again.');
+        throw Exception(
+            'Download did not finish. Check your connection and try again.');
       }
     }
 
     final path = await storage.modelPath(model.id);
     final sizeBytes = await storage.downloadedSizeBytes(model.id);
-    DiagLog.log('loadModel id=${model.id} fileMB=${(sizeBytes / 1e6).toStringAsFixed(1)} '
+    DiagLog.log(
+        'loadModel id=${model.id} fileMB=${(sizeBytes / 1e6).toStringAsFixed(1)} '
         'expectedMB=${(model.fileSizeBytes / 1e6).toStringAsFixed(1)}');
     final runner = _ref.read(llamaRunnerProvider);
     _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.loading;
@@ -254,5 +256,4 @@ class ModelActions {
     _ref.read(activeModelProvider.notifier).state = null;
     _ref.read(siriServiceProvider).setModelReady(false);
   }
-
 }

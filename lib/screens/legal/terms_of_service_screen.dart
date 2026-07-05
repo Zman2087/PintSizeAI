@@ -36,7 +36,6 @@ class _TosContent extends StatelessWidget {
           'By installing or using the app you agree to be bound by these Terms. '
           'If you do not agree, do not use PintSizeAi.',
         ),
-
         _h2('1. About PintSizeAi'),
         _body(
           'PintSizeAi is an on-device AI assistant application that runs large language models '
@@ -44,21 +43,18 @@ class _TosContent extends StatelessWidget {
           'or other content you enter is transmitted to any server operated by us. '
           'Internet access is only used when you choose to download a model file.',
         ),
-
         _h2('2. Acceptance of Terms'),
         _body(
           'You must be at least 13 years old to use PintSizeAi. If you are under 18, '
           'you confirm that you have your parent or guardian\'s permission. '
           'By using the app you represent that you meet these requirements.',
         ),
-
         _h2('3. Licence to Use'),
         _body(
           'Subject to these Terms, we grant you a personal, non-exclusive, non-transferable, '
           'revocable licence to install and use PintSizeAi on devices you own or control, '
           'solely for your personal, non-commercial purposes.',
         ),
-
         _h2('4. AI-Generated Content Disclaimer'),
         _body(
           'PintSizeAi uses artificial intelligence models to generate responses. '
@@ -70,7 +66,6 @@ class _TosContent extends StatelessWidget {
           '• We make no representations about the accuracy, reliability, or suitability '
           'of AI-generated responses for any purpose.',
         ),
-
         _h2('5. Acceptable Use'),
         _body(
           'You agree not to use PintSizeAi to:\n\n'
@@ -84,7 +79,6 @@ class _TosContent extends StatelessWidget {
           '• Generate content intended to incite violence or terrorism.\n'
           '• Violate any applicable law or regulation in your jurisdiction.',
         ),
-
         _h2('6. Model Downloads and Third-Party Content'),
         _body(
           'AI model files are downloaded from Hugging Face (huggingface.co), a third-party '
@@ -93,14 +87,12 @@ class _TosContent extends StatelessWidget {
           'You are responsible for complying with the licence terms of any model you download. '
           'We do not host, modify, or redistribute these model files.',
         ),
-
         _h2('7. Privacy'),
         _body(
           'All AI inference runs locally on your device. We do not collect, store, or '
           'transmit any conversation data, generated content, or personal information. '
           'Please see our Privacy Policy for full details.',
         ),
-
         _h2('8. Intellectual Property'),
         _body(
           'PintSizeAi and its original code are proprietary. The underlying AI models '
@@ -109,7 +101,6 @@ class _TosContent extends StatelessWidget {
           'based on llama.cpp (MIT Licence). Open-source component attributions are '
           'listed in the Open Source Licences section of the app.',
         ),
-
         _h2('9. Disclaimer of Warranties'),
         _body(
           'PINTSIZE AI IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR '
@@ -117,7 +108,6 @@ class _TosContent extends StatelessWidget {
           'FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE '
           'APP WILL BE UNINTERRUPTED, ERROR-FREE, OR THAT AI OUTPUTS WILL BE ACCURATE.',
         ),
-
         _h2('10. Limitation of Liability'),
         _body(
           'TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, WE SHALL NOT BE LIABLE '
@@ -127,7 +117,6 @@ class _TosContent extends StatelessWidget {
           'NOT ALLOW THE EXCLUSION OF CERTAIN WARRANTIES, OUR LIABILITY IS LIMITED TO '
           'THE GREATEST EXTENT PERMITTED BY LAW.',
         ),
-
         _h2('11. Changes to These Terms'),
         _body(
           'We may update these Terms from time to time. If we make material changes we '
@@ -135,19 +124,16 @@ class _TosContent extends StatelessWidget {
           'Continued use of PintSizeAi after any changes constitutes acceptance of the '
           'revised Terms.',
         ),
-
         _h2('12. Governing Law'),
         _body(
           'These Terms are governed by the laws of the jurisdiction in which the developer '
           'is established, without regard to conflict of law principles.',
         ),
-
         _h2('13. Contact'),
         _body(
           'For questions about these Terms, contact us through the app\'s support channel '
           'or the contact information provided in the App Store / Play Store listing.',
         ),
-
         const SizedBox(height: 32),
         _divider(),
         const SizedBox(height: 16),
@@ -186,14 +172,11 @@ class _TosContent extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 4),
         child: Text(text,
             style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 14,
-                height: 1.65)),
+                color: AppColors.textMuted, fontSize: 14, height: 1.65)),
       );
 
   Widget _meta(String text) => Text(text,
-      style: TextStyle(
-          color: AppColors.textDim, fontSize: 12, height: 1.5));
+      style: TextStyle(color: AppColors.textDim, fontSize: 12, height: 1.5));
 
   Widget _divider() => Divider(color: AppColors.borderDefault);
 }

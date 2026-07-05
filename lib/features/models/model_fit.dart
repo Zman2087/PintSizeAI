@@ -26,12 +26,12 @@ class FitBadge {
 }
 
 FitBadge fitBadge(ModelFit fit) => switch (fit) {
-      ModelFit.great => const FitBadge(
-          'Great fit', Color(0xFF22C55E), Icons.check_circle),
+      ModelFit.great =>
+        const FitBadge('Great fit', Color(0xFF22C55E), Icons.check_circle),
       ModelFit.good => const FitBadge(
           'Good fit', Color(0xFF22C55E), Icons.check_circle_outline),
-      ModelFit.tight => const FitBadge(
-          'Tight — may be slow', Color(0xFFF59E0B), Icons.warning_amber_rounded),
+      ModelFit.tight => const FitBadge('Tight — may be slow', Color(0xFFF59E0B),
+          Icons.warning_amber_rounded),
       ModelFit.tooBig => const FitBadge(
           'Too big for your device', Color(0xFFEF4444), Icons.error_outline),
     };
@@ -39,17 +39,22 @@ FitBadge fitBadge(ModelFit fit) => switch (fit) {
 /// Short capability tags ("Chat", "Coding", "Vision"…) shown as chips.
 /// Prefers a built-in model's curated [ModelVariant.strengths]; otherwise
 /// infers from the name, family, flags and any Hugging Face [hfTags].
-List<String> capabilityTags(ModelVariant model, {List<String> hfTags = const []}) {
+List<String> capabilityTags(ModelVariant model,
+    {List<String> hfTags = const []}) {
   final tags = <String>{};
-  final hay = ('${model.id} ${model.displayName} ${hfTags.join(' ')}').toLowerCase();
+  final hay =
+      ('${model.id} ${model.displayName} ${hfTags.join(' ')}').toLowerCase();
 
-  if (model.isMultimodal || _has(hay, ['llava', 'minicpm-v', 'vision', 'vl', '-vl'])) {
+  if (model.isMultimodal ||
+      _has(hay, ['llava', 'minicpm-v', 'vision', 'vl', '-vl'])) {
     tags.add('Vision');
   }
-  if (model.isReasoningModel || _has(hay, ['reason', 'r1', 'qwq', 'think', 'o1'])) {
+  if (model.isReasoningModel ||
+      _has(hay, ['reason', 'r1', 'qwq', 'think', 'o1'])) {
     tags.add('Reasoning');
   }
-  if (_has(hay, ['coder', 'code', 'starcoder', 'deepseek-coder'])) tags.add('Coding');
+  if (_has(hay, ['coder', 'code', 'starcoder', 'deepseek-coder']))
+    tags.add('Coding');
   if (_has(hay, ['math'])) tags.add('Math');
   if (_has(hay, ['instruct', 'chat', '-it', 'it-', 'sft'])) tags.add('Chat');
 

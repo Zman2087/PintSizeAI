@@ -24,8 +24,10 @@ class DownloadState {
   final int totalBytes;
   final String? error;
 
-  static const DownloadState notDownloaded = DownloadState(status: DownloadStatus.notDownloaded);
-  static const DownloadState downloaded = DownloadState(status: DownloadStatus.downloaded, progress: 1.0);
+  static const DownloadState notDownloaded =
+      DownloadState(status: DownloadStatus.notDownloaded);
+  static const DownloadState downloaded =
+      DownloadState(status: DownloadStatus.downloaded, progress: 1.0);
 
   DownloadState copyWith({
     DownloadStatus? status,
@@ -33,13 +35,14 @@ class DownloadState {
     int? receivedBytes,
     int? totalBytes,
     String? error,
-  }) => DownloadState(
-    status: status ?? this.status,
-    progress: progress ?? this.progress,
-    receivedBytes: receivedBytes ?? this.receivedBytes,
-    totalBytes: totalBytes ?? this.totalBytes,
-    error: error ?? this.error,
-  );
+  }) =>
+      DownloadState(
+        status: status ?? this.status,
+        progress: progress ?? this.progress,
+        receivedBytes: receivedBytes ?? this.receivedBytes,
+        totalBytes: totalBytes ?? this.totalBytes,
+        error: error ?? this.error,
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,11 +66,13 @@ class ModelDownloadService {
     connectTimeout: const Duration(seconds: 15),
   ));
 
-  final _progress = StreamController<MapEntry<String, DownloadState>>.broadcast();
+  final _progress =
+      StreamController<MapEntry<String, DownloadState>>.broadcast();
   final Map<String, CancelToken> _tokens = {};
 
   /// Stream of (modelId → DownloadState) events.
-  Stream<MapEntry<String, DownloadState>> get progressStream => _progress.stream;
+  Stream<MapEntry<String, DownloadState>> get progressStream =>
+      _progress.stream;
 
   // ── Download ────────────────────────────────────────────────────────────────
 
@@ -78,10 +83,12 @@ class ModelDownloadService {
     // always are, so anything else indicates a tampered/malformed source.
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https') {
-      _emit(modelId, const DownloadState(
-        status: DownloadStatus.error,
-        error: 'Invalid download URL (must be https).',
-      ));
+      _emit(
+          modelId,
+          const DownloadState(
+            status: DownloadStatus.error,
+            error: 'Invalid download URL (must be https).',
+          ));
       return;
     }
 
@@ -94,7 +101,8 @@ class ModelDownloadService {
     try {
       // Determine existing bytes for resume support
       final existingFile = File(path);
-      final existingBytes = existingFile.existsSync() ? existingFile.lengthSync() : 0;
+      final existingBytes =
+          existingFile.existsSync() ? existingFile.lengthSync() : 0;
 
       await _dio.download(
         url,
@@ -102,18 +110,23 @@ class ModelDownloadService {
         cancelToken: token,
         deleteOnError: false, // keep partial file for resume
         options: Options(
-          headers: existingBytes > 0 ? {'Range': 'bytes=$existingBytes-'} : null,
+          headers:
+              existingBytes > 0 ? {'Range': 'bytes=$existingBytes-'} : null,
           responseType: ResponseType.stream,
         ),
         onReceiveProgress: (received, total) {
           final actualTotal = total < 0 ? 0 : total + existingBytes;
           final actualReceived = received + existingBytes;
-          _emit(modelId, DownloadState(
-            status: DownloadStatus.downloading,
-            receivedBytes: actualReceived,
-            totalBytes: actualTotal,
-            progress: actualTotal > 0 ? (actualReceived / actualTotal).clamp(0.0, 1.0) : 0,
-          ));
+          _emit(
+              modelId,
+              DownloadState(
+                status: DownloadStatus.downloading,
+                receivedBytes: actualReceived,
+                totalBytes: actualTotal,
+                progress: actualTotal > 0
+                    ? (actualReceived / actualTotal).clamp(0.0, 1.0)
+                    : 0,
+              ));
         },
       );
 
@@ -124,17 +137,21 @@ class ModelDownloadService {
       if (e.type == DioExceptionType.cancel) {
         _emit(modelId, DownloadState.notDownloaded);
       } else {
-        _emit(modelId, DownloadState(
-          status: DownloadStatus.error,
-          error: _friendlyError(e),
-        ));
+        _emit(
+            modelId,
+            DownloadState(
+              status: DownloadStatus.error,
+              error: _friendlyError(e),
+            ));
       }
     } catch (e) {
       _tokens.remove(modelId);
-      _emit(modelId, DownloadState(
-        status: DownloadStatus.error,
-        error: e.toString(),
-      ));
+      _emit(
+          modelId,
+          DownloadState(
+            status: DownloadStatus.error,
+            error: e.toString(),
+          ));
     }
   }
 

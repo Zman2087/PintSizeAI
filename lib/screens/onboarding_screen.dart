@@ -82,7 +82,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 'A private AI assistant that runs entirely on your '
                 'device — chat, voice, and images with nothing sent to the cloud.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textMuted, fontSize: 15, height: 1.4),
+                style: TextStyle(
+                    color: AppColors.textMuted, fontSize: 15, height: 1.4),
               ),
               const SizedBox(height: 28),
               const _FeatureRow(
@@ -100,7 +101,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 ),
                 error: (_, __) => _ModelCard(
-                  model: kModelCatalogue.firstWhere((m) => m.id == kStarterModelId),
+                  model: kModelCatalogue
+                      .firstWhere((m) => m.id == kStarterModelId),
                   installing: _installing,
                   progress: _progressFor(kStarterModelId),
                   onDownload: _installing
@@ -175,7 +177,8 @@ class _ModelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sizeGb = model.fileSizeGb.toStringAsFixed(model.fileSizeGb < 1 ? 2 : 1);
+    final sizeGb =
+        model.fileSizeGb.toStringAsFixed(model.fileSizeGb < 1 ? 2 : 1);
     final pct = ((progress ?? 0) * 100).toInt();
     final isThisInstalling = installing && progress != null;
 
@@ -201,9 +204,12 @@ class _ModelCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(model.displayName,
               style: TextStyle(
-                  color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w600)),
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('${model.parametersBillions}B · ${model.quant.label} · $sizeGb GB',
+          Text(
+              '${model.parametersBillions}B · ${model.quant.label} · $sizeGb GB',
               style: TextStyle(color: AppColors.textDim, fontSize: 13)),
           const SizedBox(height: 14),
           if (isThisInstalling) ...[
@@ -213,8 +219,7 @@ class _ModelCard extends StatelessWidget {
                 value: pct > 0 ? progress : null,
                 minHeight: 6,
                 backgroundColor: AppColors.surfaceActive,
-                valueColor:
-                    const AlwaysStoppedAnimation(AppColors.accentGreen),
+                valueColor: const AlwaysStoppedAnimation(AppColors.accentGreen),
               ),
             ),
             const SizedBox(height: 8),
@@ -236,7 +241,8 @@ class _ModelCard extends StatelessWidget {
                   ),
                 ),
                 child: const Text('Download & Get Started',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
               ),
             ),
         ],

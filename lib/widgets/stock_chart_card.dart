@@ -91,8 +91,8 @@ class _StockChartCardState extends State<StockChartCard> {
                     Text(name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            color: AppColors.textDim, fontSize: 12)),
+                        style:
+                            TextStyle(color: AppColors.textDim, fontSize: 12)),
                   ],
                 ),
               ),
@@ -149,18 +149,15 @@ class _StockChartCardState extends State<StockChartCard> {
                   onTap: () => _selectRange(symbol, label),
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     child: Text(
                       label,
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: _range == label
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                        color: _range == label
-                            ? accent
-                            : AppColors.textDim,
+                        fontWeight:
+                            _range == label ? FontWeight.w700 : FontWeight.w500,
+                        color: _range == label ? accent : AppColors.textDim,
                       ),
                     ),
                   ),

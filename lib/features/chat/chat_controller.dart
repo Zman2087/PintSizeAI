@@ -83,8 +83,7 @@ class ChatController extends StateNotifier<ChatState> {
     if (state.sessions.isNotEmpty) return;
     state = state.copyWith(
       sessions: saved.sessions,
-      activeSessionId:
-          saved.activeSessionId ?? saved.sessions.first.id,
+      activeSessionId: saved.activeSessionId ?? saved.sessions.first.id,
     );
   }
 
@@ -108,17 +107,21 @@ class ChatController extends StateNotifier<ChatState> {
 
   Future<void> _saveToCloud() async {
     try {
-      final sessions = state.sessions.map((s) => {
-        'id': s.id,
-        'title': s.title,
-        'createdAt': s.createdAt.toIso8601String(),
-        'messages': s.messages.map((m) => {
-          'id': m.id,
-          'role': m.role.name,
-          'content': m.content,
-          'timestamp': m.timestamp.toIso8601String(),
-        }).toList(),
-      }).toList();
+      final sessions = state.sessions
+          .map((s) => {
+                'id': s.id,
+                'title': s.title,
+                'createdAt': s.createdAt.toIso8601String(),
+                'messages': s.messages
+                    .map((m) => {
+                          'id': m.id,
+                          'role': m.role.name,
+                          'content': m.content,
+                          'timestamp': m.timestamp.toIso8601String(),
+                        })
+                    .toList(),
+              })
+          .toList();
       await _cloudSync.save(jsonEncode(sessions));
     } catch (_) {}
   }
@@ -129,17 +132,24 @@ class ChatController extends StateNotifier<ChatState> {
       if (json == null) return;
       final list = jsonDecode(json) as List;
       final sessions = list.map((s) {
-        final msgs = (s['messages'] as List?)?.map((m) => ChatMessage(
-          id: m['id'] as String,
-          role: MessageRole.values.firstWhere(
-              (r) => r.name == m['role'], orElse: () => MessageRole.user),
-          content: m['content'] as String,
-          timestamp: DateTime.tryParse(m['timestamp'] as String? ?? '') ?? DateTime.now(),
-        )).toList() ?? <ChatMessage>[];
+        final msgs = (s['messages'] as List?)
+                ?.map((m) => ChatMessage(
+                      id: m['id'] as String,
+                      role: MessageRole.values.firstWhere(
+                          (r) => r.name == m['role'],
+                          orElse: () => MessageRole.user),
+                      content: m['content'] as String,
+                      timestamp:
+                          DateTime.tryParse(m['timestamp'] as String? ?? '') ??
+                              DateTime.now(),
+                    ))
+                .toList() ??
+            <ChatMessage>[];
         return ChatSession(
           id: s['id'] as String,
           title: s['title'] as String?,
-          createdAt: DateTime.tryParse(s['createdAt'] as String? ?? '') ?? DateTime.now(),
+          createdAt: DateTime.tryParse(s['createdAt'] as String? ?? '') ??
+              DateTime.now(),
           messages: msgs,
         );
       }).toList();
@@ -189,7 +199,8 @@ class ChatController extends StateNotifier<ChatState> {
 
   /// Adds a user message directly without requiring the LLM to be loaded.
   /// Used for image/video generation flows where inference isn't needed.
-  void addUserMessage(String text, {List<ChatAttachment> attachments = const []}) {
+  void addUserMessage(String text,
+      {List<ChatAttachment> attachments = const []}) {
     if (state.activeSession == null) newChat();
     final msg = ChatMessage(
       id: _uid(),
@@ -216,7 +227,8 @@ class ChatController extends StateNotifier<ChatState> {
 
     var runner = _ref.read(llamaRunnerProvider);
     if (runner.status == LlamaStatus.ready) {
-      _lastLoadFailedModelId = null; // a model is loaded fine; reset failure memory
+      _lastLoadFailedModelId =
+          null; // a model is loaded fine; reset failure memory
     } else {
       // The model may have been evicted under memory pressure (e.g. iOS freed
       // it while the app was backgrounded). Try to silently reload it — but not
@@ -232,7 +244,8 @@ class ChatController extends StateNotifier<ChatState> {
       }
       if (runner.status != LlamaStatus.ready) {
         state = state.copyWith(
-          error: 'No model loaded. Open Models to choose one that fits your device.',
+          error:
+              'No model loaded. Open Models to choose one that fits your device.',
         );
         return;
       }
@@ -324,53 +337,57 @@ class ChatController extends StateNotifier<ChatState> {
 
     try {
       await _tokenSub?.cancel();
-      _tokenSub = runner.generate(prompt,
-        temperature: temperature, topP: topP, maxTokens: maxTok,
-        imageBytes: imageBytes).listen(
-        (token) {
-          if (finished || _genSeq != mySeq) return;
-          tokenCount++;
-          buffer.write(token);
-          final current = buffer.toString();
+      _tokenSub = runner
+          .generate(prompt,
+              temperature: temperature,
+              topP: topP,
+              maxTokens: maxTok,
+              imageBytes: imageBytes)
+          .listen(
+            (token) {
+              if (finished || _genSeq != mySeq) return;
+              tokenCount++;
+              buffer.write(token);
+              final current = buffer.toString();
 
-          // Stop-sequence detection: many GGUFs don't tag their turn-end token
-          // as EOG, so the model would otherwise role-play both sides forever.
-          var stopIdx = -1;
-          for (final s in _kStopSequences) {
-            final i = current.indexOf(s);
-            if (i >= 0 && (stopIdx < 0 || i < stopIdx)) stopIdx = i;
-          }
-          if (stopIdx >= 0) {
-            _tokenSub?.cancel();
-            runner.cancelGeneration();
-            finalize(current);
-            return;
-          }
+              // Stop-sequence detection: many GGUFs don't tag their turn-end token
+              // as EOG, so the model would otherwise role-play both sides forever.
+              var stopIdx = -1;
+              for (final s in _kStopSequences) {
+                final i = current.indexOf(s);
+                if (i >= 0 && (stopIdx < 0 || i < stopIdx)) stopIdx = i;
+              }
+              if (stopIdx >= 0) {
+                _tokenSub?.cancel();
+                runner.cancelGeneration();
+                finalize(current);
+                return;
+              }
 
-          _updateLastAssistantMessage(current, isStreaming: true);
-          // Streaming TTS: speak each complete sentence as it arrives
-          if (streamingTts && autoSpeak) {
-            final unsent = current.substring(ttsSentUpTo);
-            final sentenceEnd = _lastSentenceBoundary(unsent);
-            if (sentenceEnd > 0) {
-              final chunk = unsent.substring(0, sentenceEnd).trim();
-              if (chunk.isNotEmpty) voice.speak(chunk);
-              ttsSentUpTo += sentenceEnd;
-            }
-          }
-        },
-        onDone: () => finalize(buffer.toString()),
-        onError: (e) {
-          if (finished) return;
-          finished = true;
-          _updateLastAssistantMessage(
-            'Error: ${e.toString()}',
-            isStreaming: false,
+              _updateLastAssistantMessage(current, isStreaming: true);
+              // Streaming TTS: speak each complete sentence as it arrives
+              if (streamingTts && autoSpeak) {
+                final unsent = current.substring(ttsSentUpTo);
+                final sentenceEnd = _lastSentenceBoundary(unsent);
+                if (sentenceEnd > 0) {
+                  final chunk = unsent.substring(0, sentenceEnd).trim();
+                  if (chunk.isNotEmpty) voice.speak(chunk);
+                  ttsSentUpTo += sentenceEnd;
+                }
+              }
+            },
+            onDone: () => finalize(buffer.toString()),
+            onError: (e) {
+              if (finished) return;
+              finished = true;
+              _updateLastAssistantMessage(
+                'Error: ${e.toString()}',
+                isStreaming: false,
+              );
+              _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.ready;
+              state = state.copyWith(error: e.toString());
+            },
           );
-          _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.ready;
-          state = state.copyWith(error: e.toString());
-        },
-      );
     } catch (e) {
       _ref.read(llamaStatusProvider.notifier).state = LlamaStatus.ready;
       state = state.copyWith(error: e.toString());
@@ -590,7 +607,8 @@ class ChatController extends StateNotifier<ChatState> {
     );
 
     state = state.copyWith(
-      sessions: state.sessions.map((s) => s.id == session.id ? updated : s).toList(),
+      sessions:
+          state.sessions.map((s) => s.id == session.id ? updated : s).toList(),
     );
     _persistLocal();
   }
@@ -615,7 +633,8 @@ class ChatController extends StateNotifier<ChatState> {
       messages: messages,
     );
     state = state.copyWith(
-      sessions: state.sessions.map((s) => s.id == session.id ? updated : s).toList(),
+      sessions:
+          state.sessions.map((s) => s.id == session.id ? updated : s).toList(),
     );
     _persistLocal();
 
@@ -684,7 +703,8 @@ class ChatController extends StateNotifier<ChatState> {
     );
 
     state = state.copyWith(
-      sessions: state.sessions.map((s) => s.id == session.id ? updated : s).toList(),
+      sessions:
+          state.sessions.map((s) => s.id == session.id ? updated : s).toList(),
     );
   }
 
@@ -700,7 +720,8 @@ class ChatController extends StateNotifier<ChatState> {
     final session = state.activeSession;
     if (session == null || session.title != null) return;
     final userMsgs = session.messages.where((m) => m.isUser).toList();
-    final assistantMsgs = session.messages.where((m) => m.isAssistant && !m.isStreaming).toList();
+    final assistantMsgs =
+        session.messages.where((m) => m.isAssistant && !m.isStreaming).toList();
     if (userMsgs.isEmpty) return;
 
     // After the first real exchange, generate a smart title via the model.
@@ -725,15 +746,15 @@ class ChatController extends StateNotifier<ChatState> {
         .map((m) => '${m.isUser ? "User" : "Assistant"}: ${m.content}')
         .join('\n');
 
-    final titlePrompt =
-        '<|im_start|>system\nYou are a title generator. '
+    final titlePrompt = '<|im_start|>system\nYou are a title generator. '
         'Reply with ONLY a short title of 3 to 5 words. No quotes, no punctuation at the end.<|im_end|>\n'
         '<|im_start|>user\nSummarize this conversation in 3-5 words:\n$exchange<|im_end|>\n'
         '<|im_start|>assistant\n';
 
     try {
       final buffer = StringBuffer();
-      await for (final tok in runner.generate(titlePrompt, maxTokens: 20, temperature: 0.3)) {
+      await for (final tok
+          in runner.generate(titlePrompt, maxTokens: 20, temperature: 0.3)) {
         buffer.write(tok);
         if (buffer.length > 60) break;
       }
@@ -761,7 +782,8 @@ class ChatController extends StateNotifier<ChatState> {
 
     final exchange = msgs
         .take(6)
-        .map((m) => '${m.isUser ? "User" : "AI"}: ${m.content.substring(0, m.content.length.clamp(0, 120))}')
+        .map((m) =>
+            '${m.isUser ? "User" : "AI"}: ${m.content.substring(0, m.content.length.clamp(0, 120))}')
         .join('\n');
 
     const memPrompt =
@@ -770,9 +792,10 @@ class ChatController extends StateNotifier<ChatState> {
 
     try {
       final buf = StringBuffer();
-      await for (final tok
-          in runner.generate('$memPrompt$exchange<|im_end|>\n<|im_start|>assistant\n',
-              maxTokens: 40, temperature: 0.3)) {
+      await for (final tok in runner.generate(
+          '$memPrompt$exchange<|im_end|>\n<|im_start|>assistant\n',
+          maxTokens: 40,
+          temperature: 0.3)) {
         buf.write(tok);
         if (buf.length > 200) break;
       }
@@ -791,7 +814,7 @@ class ChatController extends StateNotifier<ChatState> {
     final current = state.sessions.where((s) => s.id == session.id).firstOrNull;
     if (current == null || current.title != null) return;
 
-    final clean = raw.replaceAll(RegExp(r'["""''\n]'), '').trim();
+    final clean = raw.replaceAll(RegExp(r'["""' '\n]'), '').trim();
     final title = clean.length > 50 ? '${clean.substring(0, 50)}…' : clean;
     final updated = ChatSession(
       id: current.id,
@@ -801,7 +824,8 @@ class ChatController extends StateNotifier<ChatState> {
       messages: current.messages,
     );
     state = state.copyWith(
-      sessions: state.sessions.map((s) => s.id == session.id ? updated : s).toList(),
+      sessions:
+          state.sessions.map((s) => s.id == session.id ? updated : s).toList(),
     );
   }
 
@@ -868,7 +892,8 @@ class ChatController extends StateNotifier<ChatState> {
 
     for (final msg in history.where((m) => !m.isStreaming || m.isUser)) {
       final role = msg.isUser ? 'user' : 'assistant';
-      buf.write('<|im_start|>$role\n${_sanitizeForPrompt(msg.content)}<|im_end|>\n');
+      buf.write(
+          '<|im_start|>$role\n${_sanitizeForPrompt(msg.content)}<|im_end|>\n');
     }
 
     buf.write('<|im_start|>assistant\n');
@@ -878,8 +903,7 @@ class ChatController extends StateNotifier<ChatState> {
   // ── Siri prompts (always ChatML — Siri always uses the loaded model) ────────
 
   String _buildSiriPrompt(String question) {
-    const system =
-        'You are PintSizeAi, answering a Siri voice question. '
+    const system = 'You are PintSizeAi, answering a Siri voice question. '
         'Reply in 1-3 plain sentences, no bullet points, no markdown. '
         'Be direct and concise — your answer will be spoken aloud.';
     return '<|im_start|>system\n$system<|im_end|>\n'
@@ -888,8 +912,7 @@ class ChatController extends StateNotifier<ChatState> {
   }
 
   int _uidCounter = 0;
-  String _uid() =>
-      '${DateTime.now().microsecondsSinceEpoch}_${_uidCounter++}';
+  String _uid() => '${DateTime.now().microsecondsSinceEpoch}_${_uidCounter++}';
 
   @override
   void dispose() {

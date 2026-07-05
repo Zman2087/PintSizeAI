@@ -225,8 +225,7 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
                 children: [
                   if (_transcript.isNotEmpty && _phase == _Phase.listening)
                     _Bubble(text: _transcript, isUser: true),
-                  if (_aiText.isNotEmpty)
-                    _Bubble(text: _aiText, isUser: false),
+                  if (_aiText.isNotEmpty) _Bubble(text: _aiText, isUser: false),
                 ],
               ),
             ),
@@ -259,8 +258,8 @@ class _VoiceModeScreenState extends ConsumerState<VoiceModeScreen>
                   _startListening();
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.white24),
                     borderRadius: BorderRadius.circular(20),
@@ -393,8 +392,8 @@ class _Bubble extends StatelessWidget {
         ),
         child: Text(
           text,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 15, height: 1.4),
+          style:
+              const TextStyle(color: Colors.white, fontSize: 15, height: 1.4),
           maxLines: 8,
           overflow: TextOverflow.ellipsis,
         ),

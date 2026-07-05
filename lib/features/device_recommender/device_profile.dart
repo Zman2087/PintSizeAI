@@ -44,7 +44,7 @@ class DeviceProfile {
   // ─── Derived helpers ───────────────────────────────────────────────────────
 
   int get totalRamGb => (totalRamBytes / 1e9).round();
-  int get freeRamGb  => (freeRamBytes  / 1e9).round();
+  int get freeRamGb => (freeRamBytes / 1e9).round();
 
   /// Safe RAM budget for a model: free RAM minus 15% headroom for the OS
   /// and the Flutter engine. iOS aggressively reclaims memory, so we're
@@ -57,8 +57,7 @@ class DeviceProfile {
   int get recommendedThreads => (cpuCoreCount / 2).clamp(2, 6).toInt();
 
   @override
-  String toString() =>
-      'DeviceProfile($deviceName, ${totalRamGb}GB RAM, '
+  String toString() => 'DeviceProfile($deviceName, ${totalRamGb}GB RAM, '
       '${freeRamGb}GB free, $chipTier, GPU=$hasGpuAcceleration)';
 }
 
@@ -84,20 +83,20 @@ enum ChipTier {
   /// Estimated token/s for a 3B Q4_K_M model with GPU acceleration.
   /// Used to project throughput for larger models by scaling down.
   double get baseline3bTokensPerSec => switch (this) {
-    ChipTier.flagship  => 22.0,
-    ChipTier.highEnd   => 17.0,
-    ChipTier.midRange  => 11.0,
-    ChipTier.entry     =>  5.5,
-    ChipTier.tooSlow   =>  2.0,
-  };
+        ChipTier.flagship => 22.0,
+        ChipTier.highEnd => 17.0,
+        ChipTier.midRange => 11.0,
+        ChipTier.entry => 5.5,
+        ChipTier.tooSlow => 2.0,
+      };
 
   String get label => switch (this) {
-    ChipTier.flagship  => 'Flagship',
-    ChipTier.highEnd   => 'High-end',
-    ChipTier.midRange  => 'Mid-range',
-    ChipTier.entry     => 'Entry-level',
-    ChipTier.tooSlow   => 'Too slow',
-  };
+        ChipTier.flagship => 'Flagship',
+        ChipTier.highEnd => 'High-end',
+        ChipTier.midRange => 'Mid-range',
+        ChipTier.entry => 'Entry-level',
+        ChipTier.tooSlow => 'Too slow',
+      };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -127,14 +126,14 @@ class DeviceProfileService {
     final chipString = (data['chipModel'] as String? ?? '').toLowerCase();
 
     return DeviceProfile(
-      totalRamBytes:    (data['totalRamBytes']    as int),
-      freeRamBytes:     (data['freeRamBytes']     as int),
+      totalRamBytes: (data['totalRamBytes'] as int),
+      freeRamBytes: (data['freeRamBytes'] as int),
       freeStorageBytes: (data['freeStorageBytes'] as int),
-      chipTier:         _classifyChip(chipString, data['totalRamBytes'] as int),
-      cpuCoreCount:     (data['cpuCoreCount']     as int),
-      hasGpuAcceleration: (data['hasGpu']         as bool),
-      osVersion:        (data['osVersion']        as String),
-      deviceName:       (data['deviceName']       as String),
+      chipTier: _classifyChip(chipString, data['totalRamBytes'] as int),
+      cpuCoreCount: (data['cpuCoreCount'] as int),
+      hasGpuAcceleration: (data['hasGpu'] as bool),
+      osVersion: (data['osVersion'] as String),
+      deviceName: (data['deviceName'] as String),
     );
   }
 
@@ -172,13 +171,15 @@ class DeviceProfileService {
 
     // ── Qualcomm Snapdragon ────────────────────────────────────────────────
     // Snapdragon 8 Gen 3 (SM8650) — Galaxy S24 Ultra, OnePlus 12
-    if (_matches(chip, ['sm8650', '8gen3', '8 gen 3'])) return ChipTier.flagship;
+    if (_matches(chip, ['sm8650', '8gen3', '8 gen 3']))
+      return ChipTier.flagship;
 
     // Snapdragon 8 Gen 2 (SM8550) — Galaxy S23, Pixel 8 Pro
     if (_matches(chip, ['sm8550', '8gen2', '8 gen 2'])) return ChipTier.highEnd;
 
     // Snapdragon 8 Gen 1 (SM8450) — Galaxy S22
-    if (_matches(chip, ['sm8450', '8gen1', '8 gen 1'])) return ChipTier.midRange;
+    if (_matches(chip, ['sm8450', '8gen1', '8 gen 1']))
+      return ChipTier.midRange;
 
     // Snapdragon 8+ Gen 1 (SM8475)
     if (_matches(chip, ['sm8475'])) return ChipTier.midRange;
@@ -203,7 +204,8 @@ class DeviceProfileService {
     if (_matches(chip, ['9000'])) return ChipTier.midRange;
 
     // Dimensity 8xxx — capable mid
-    if (_matches(chip, ['8300', '8200', '8100', '8050'])) return ChipTier.midRange;
+    if (_matches(chip, ['8300', '8200', '8100', '8050']))
+      return ChipTier.midRange;
 
     // Dimensity 7xxx and below
     if (_matches(chip, ['7200', '7050', '7020'])) return ChipTier.entry;
@@ -217,8 +219,8 @@ class DeviceProfileService {
     // ── Unknown — fall back to RAM heuristic ──────────────────────────────
     // 12GB+ RAM usually means a recent flagship even if we can't read the chip.
     if (totalRamBytes >= 12 * 1024 * 1024 * 1024) return ChipTier.highEnd;
-    if (totalRamBytes >= 8  * 1024 * 1024 * 1024) return ChipTier.midRange;
-    if (totalRamBytes >= 6  * 1024 * 1024 * 1024) return ChipTier.entry;
+    if (totalRamBytes >= 8 * 1024 * 1024 * 1024) return ChipTier.midRange;
+    if (totalRamBytes >= 6 * 1024 * 1024 * 1024) return ChipTier.entry;
     return ChipTier.tooSlow;
   }
 

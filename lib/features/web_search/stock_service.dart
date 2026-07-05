@@ -46,8 +46,7 @@ class StockService {
     connectTimeout: const Duration(seconds: 6),
     receiveTimeout: const Duration(seconds: 8),
     headers: {
-      'User-Agent':
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
           'AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
     },
   ));
@@ -56,22 +55,74 @@ class StockService {
   static bool looksLikeStockQuery(String text) {
     final lower = text.toLowerCase();
     const triggers = [
-      'stock', 'share price', 'shares', 'ticker', 'nasdaq', 'nyse',
-      'market cap', 'how much is', 'price of', '\$', 'trading at',
-      'stock price', 'price for', 'worth right now', 'share value',
-      'quote for', 'market price',
+      'stock',
+      'share price',
+      'shares',
+      'ticker',
+      'nasdaq',
+      'nyse',
+      'market cap',
+      'how much is',
+      'price of',
+      '\$',
+      'trading at',
+      'stock price',
+      'price for',
+      'worth right now',
+      'share value',
+      'quote for',
+      'market price',
     ];
     return triggers.any(lower.contains);
   }
 
   // Filler words stripped from a question to isolate the company/ticker.
   static const _fillers = {
-    'what', 'whats', "what's", 'is', 'the', 'a', 'share', 'shares', 'price',
-    'prices', 'stock', 'stocks', 'current', 'currently', 'trading', 'trade',
-    'just', 'list', 'show', 'or', 'me', 'please', 'value', 'worth', 'quote',
-    'for', 'of', 'on', 'at', 'how', 'much', 'does', 'cost', 'today', 'now',
-    'latest', 'give', 'tell', 'to', 'and', 'get', 'find', 'my',
-    'market', 'ticker',
+    'what',
+    'whats',
+    "what's",
+    'is',
+    'the',
+    'a',
+    'share',
+    'shares',
+    'price',
+    'prices',
+    'stock',
+    'stocks',
+    'current',
+    'currently',
+    'trading',
+    'trade',
+    'just',
+    'list',
+    'show',
+    'or',
+    'me',
+    'please',
+    'value',
+    'worth',
+    'quote',
+    'for',
+    'of',
+    'on',
+    'at',
+    'how',
+    'much',
+    'does',
+    'cost',
+    'today',
+    'now',
+    'latest',
+    'give',
+    'tell',
+    'to',
+    'and',
+    'get',
+    'find',
+    'my',
+    'market',
+    'ticker',
   };
 
   /// Strips filler words so only the company name / ticker remains.
@@ -98,8 +149,7 @@ class StockService {
     // (e.g. "ghhf.asx" → "ghhf"), then a bare short ticker.
     final candidates = <String>[
       cleaned,
-      cleaned.replaceAll(
-          RegExp(r'\.(asx|ax|us|l|to|nasdaq|nyse|nse|hk)$'), ''),
+      cleaned.replaceAll(RegExp(r'\.(asx|ax|us|l|to|nasdaq|nyse|nse|hk)$'), ''),
     ];
     final seen = <String>{};
     for (final c in candidates) {
@@ -214,9 +264,10 @@ class StockService {
   }
 
   /// Fetches a quote + [rangeLabel] of closes for [symbol].
-  Future<StockQuote?> fetchQuote(String symbol, {String rangeLabel = '1M'}) async {
-    final r = StockService.chartRanges[rangeLabel] ??
-        StockService.chartRanges['1M']!;
+  Future<StockQuote?> fetchQuote(String symbol,
+      {String rangeLabel = '1M'}) async {
+    final r =
+        StockService.chartRanges[rangeLabel] ?? StockService.chartRanges['1M']!;
     try {
       final resp = await _dio.get(
         'https://query1.finance.yahoo.com/v8/finance/chart/${Uri.encodeComponent(symbol)}',

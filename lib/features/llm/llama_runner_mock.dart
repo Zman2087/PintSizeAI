@@ -154,7 +154,15 @@ class LlamaRunnerMock implements LlamaRunner {
           'What I can help with is anything that doesn\'t require a live internet connection.';
     }
 
-    if (_containsAny(q, ['code', 'function', 'dart', 'swift', 'python', 'javascript', 'kotlin'])) {
+    if (_containsAny(q, [
+      'code',
+      'function',
+      'dart',
+      'swift',
+      'python',
+      'javascript',
+      'kotlin'
+    ])) {
       return 'Happy to help with code. '
           'Could you share the specific function or problem you\'re working on? '
           'I can write, review, debug, or explain code in Dart, Swift, Kotlin, Python, JavaScript, and most other common languages.';
@@ -162,8 +170,20 @@ class LlamaRunnerMock implements LlamaRunner {
 
     if (_containsAny(q, ['time', 'date', 'today', 'now'])) {
       final now = DateTime.now();
-      final months = ['January','February','March','April','May','June',
-                      'July','August','September','October','November','December'];
+      final months = [
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December'
+      ];
       return 'Today is ${months[now.month - 1]} ${now.day}, ${now.year}. '
           'The current time is ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}. '
           'I get this from your device\'s system clock, not the internet.';
@@ -175,16 +195,24 @@ class LlamaRunnerMock implements LlamaRunner {
           'I can go deep on the technical details or keep it high-level — just let me know what\'s most useful.';
     }
 
-    if (_containsAny(q, ['make an image', 'generate an image', 'create an image',
-        'draw ', 'paint ', 'make a picture', 'generate a picture',
-        'make a photo', '/imagine'])) {
+    if (_containsAny(q, [
+      'make an image',
+      'generate an image',
+      'create an image',
+      'draw ',
+      'paint ',
+      'make a picture',
+      'generate a picture',
+      'make a photo',
+      '/imagine'
+    ])) {
       return 'Generating image — tap the + button and choose "Generate Image", '
           'or just type "make an image of …" and I\'ll route it directly to the '
           'on-device image generator automatically.';
     }
 
-    if (_containsAny(q, ['make a video', 'generate a video', 'create a video',
-        'animate '])) {
+    if (_containsAny(q,
+        ['make a video', 'generate a video', 'create a video', 'animate '])) {
       return 'Generating video — tap the + button and choose "Generate Video", '
           'or type "make a video of …" and I\'ll route it to the on-device '
           'video generator automatically.';

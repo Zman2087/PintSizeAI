@@ -63,8 +63,8 @@ void main() {
 
   group('capabilityTags', () {
     test('detects coding + chat from name', () {
-      final tags = capabilityTags(
-          _model(params: 3, ramBytes: 2000000000, name: 'Qwen2.5 Coder Instruct'));
+      final tags = capabilityTags(_model(
+          params: 3, ramBytes: 2000000000, name: 'Qwen2.5 Coder Instruct'));
       expect(tags, contains('Coding'));
       expect(tags, contains('Chat'));
     });
@@ -81,12 +81,14 @@ void main() {
 
   group('StockService.cleanQuery', () {
     test('strips filler words to the company', () {
-      expect(StockService.cleanQuery('what is the spacex share price'), 'spacex');
+      expect(
+          StockService.cleanQuery('what is the spacex share price'), 'spacex');
       expect(StockService.cleanQuery('tesla stock price'), 'tesla');
       expect(StockService.cleanQuery('current price of aapl'), 'aapl');
     });
     test('handles apostrophes without leaving a stray token', () {
-      expect(StockService.cleanQuery("what's the spacex share price"), 'spacex');
+      expect(
+          StockService.cleanQuery("what's the spacex share price"), 'spacex');
       expect(StockService.cleanQuery('what’s tesla trading at'), 'tesla');
     });
     test('keeps ticker with exchange suffix', () {
@@ -97,16 +99,19 @@ void main() {
   group('StockService.looksLikeStockQuery', () {
     test('true for price questions', () {
       expect(StockService.looksLikeStockQuery('tesla stock price'), isTrue);
-      expect(StockService.looksLikeStockQuery('what is aapl trading at'), isTrue);
+      expect(
+          StockService.looksLikeStockQuery('what is aapl trading at'), isTrue);
     });
     test('false for ordinary chat', () {
-      expect(StockService.looksLikeStockQuery('write hello world in python'), isFalse);
+      expect(StockService.looksLikeStockQuery('write hello world in python'),
+          isFalse);
     });
   });
 
   group('HuggingFace parsing', () {
     test('quant label parsed from filename', () {
-      const f = HFFile(path: 'Llama-3.2-3B-Instruct-Q4_K_M.gguf', sizeBytes: 100);
+      const f =
+          HFFile(path: 'Llama-3.2-3B-Instruct-Q4_K_M.gguf', sizeBytes: 100);
       expect(f.quantLabel, 'Q4_K_M');
     });
     test('toModelVariant infers params, family, url', () {
@@ -117,8 +122,8 @@ void main() {
         lastModified: '2025-01-01',
         tags: ['gguf'],
       );
-      const file =
-          HFFile(path: 'Qwen2.5-3B-Instruct-Q4_K_M.gguf', sizeBytes: 2000000000);
+      const file = HFFile(
+          path: 'Qwen2.5-3B-Instruct-Q4_K_M.gguf', sizeBytes: 2000000000);
       final m = HuggingFaceService.toModelVariant(repo, file);
       expect(m.parametersBillions, 3.0);
       expect(m.family, ModelFamily.qwen);
@@ -134,8 +139,10 @@ void main() {
       expect(svc.relevantContext(doc, 'cats'), doc);
     });
     test('long doc returns the relevant passage', () {
-      final svc = DocumentRetrievalService(chunkSize: 200, overlap: 20, topK: 1);
-      final filler = List.filled(60, 'The weather is mild and pleasant.').join(' ');
+      final svc =
+          DocumentRetrievalService(chunkSize: 200, overlap: 20, topK: 1);
+      final filler =
+          List.filled(60, 'The weather is mild and pleasant.').join(' ');
       final needle = 'The quarterly revenue for Acme was 42 million dollars.';
       final doc = '$filler $needle $filler';
       final result = svc.relevantContext(doc, 'Acme revenue quarterly');

@@ -29,7 +29,8 @@ class MessageContent extends StatelessWidget {
     final end = text.indexOf(StockChartCard.endMarker);
     if (start >= 0 && end > start) {
       final before = text.substring(0, start).trim();
-      final json = text.substring(start + StockChartCard.startMarker.length, end);
+      final json =
+          text.substring(start + StockChartCard.startMarker.length, end);
       final after =
           text.substring(end + StockChartCard.endMarker.length).trim();
       return Column(
@@ -74,11 +75,11 @@ class _MixedContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: segments.map((seg) {
         if (seg.isMath) {
-          return _MathBlock(
-              tex: seg.content.trim(), isDisplay: seg.isDisplay);
+          return _MathBlock(tex: seg.content.trim(), isDisplay: seg.isDisplay);
         }
         return _MarkdownBlock(
-            text: seg.content, isStreaming: isStreaming && seg == segments.last);
+            text: seg.content,
+            isStreaming: isStreaming && seg == segments.last);
       }).toList(),
     );
   }
@@ -94,8 +95,8 @@ class _MixedContent extends StatelessWidget {
         result.add(_Segment(src.substring(pos, m.start), false, false));
       }
       final isDisplay = m.group(1) != null;
-      result.add(_Segment(
-          isDisplay ? m.group(1)! : m.group(2)!, true, isDisplay));
+      result.add(
+          _Segment(isDisplay ? m.group(1)! : m.group(2)!, true, isDisplay));
       pos = m.end;
     }
     if (pos < src.length) {
@@ -250,9 +251,8 @@ class _CodeBlock extends StatefulWidget {
 class _CodeBlockState extends State<_CodeBlock> {
   bool _copied = false;
 
-  bool get _isWebRunnable =>
-      ['html', 'htm', 'css', 'javascript', 'js', 'svg']
-          .contains(widget.language.toLowerCase());
+  bool get _isWebRunnable => ['html', 'htm', 'css', 'javascript', 'js', 'svg']
+      .contains(widget.language.toLowerCase());
 
   void _copy() {
     Clipboard.setData(ClipboardData(text: widget.code));
@@ -279,12 +279,10 @@ class _CodeBlockState extends State<_CodeBlock> {
         children: [
           // Header bar
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: const BoxDecoration(
               color: Color(0xFF0F2244),
-              borderRadius:
-                  BorderRadius.vertical(top: Radius.circular(10)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
             ),
             child: Row(
               children: [
@@ -302,8 +300,7 @@ class _CodeBlockState extends State<_CodeBlock> {
                     label: 'Run',
                     icon: Icons.play_circle_outline,
                     color: const Color(0xFF22C55E),
-                    onTap: () =>
-                        HtmlSandboxScreen.open(context, widget.code),
+                    onTap: () => HtmlSandboxScreen.open(context, widget.code),
                   ),
                 const SizedBox(width: 8),
                 _HeaderBtn(

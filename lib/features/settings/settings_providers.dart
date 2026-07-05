@@ -83,7 +83,8 @@ class _IntNotifier extends StateNotifier<int> {
 }
 
 /// LLM sampling temperature (0.0 – 2.0, default 0.7).
-final temperatureProvider = StateNotifierProvider<_DoubleNotifier, double>((ref) {
+final temperatureProvider =
+    StateNotifierProvider<_DoubleNotifier, double>((ref) {
   final n = _DoubleNotifier(0.7);
   ref.read(settingsServiceProvider).getTemperature().then(n._set);
   return n;

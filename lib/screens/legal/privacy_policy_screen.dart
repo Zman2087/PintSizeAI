@@ -40,8 +40,7 @@ class _Content extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.accentGreen.withOpacity(0.08),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: AppColors.accentGreen.withOpacity(0.25)),
+            border: Border.all(color: AppColors.accentGreen.withOpacity(0.25)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,14 +184,11 @@ class _Content extends StatelessWidget {
       );
 
   Widget _body(String text) => Text(text,
-      style: TextStyle(
-          color: AppColors.textMuted, fontSize: 14, height: 1.65));
+      style: TextStyle(color: AppColors.textMuted, fontSize: 14, height: 1.65));
 
   Widget _bodySmall(String text) => Text(text,
-      style: TextStyle(
-          color: AppColors.textMuted, fontSize: 13, height: 1.55));
+      style: TextStyle(color: AppColors.textMuted, fontSize: 13, height: 1.55));
 
   Widget _meta(String text) => Text(text,
-      style: TextStyle(
-          color: AppColors.textDim, fontSize: 12, height: 1.5));
+      style: TextStyle(color: AppColors.textDim, fontSize: 12, height: 1.5));
 }

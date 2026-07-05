@@ -46,7 +46,8 @@ class SiriService {
     try {
       final controller = ref.read(chatControllerProvider.notifier);
       final answer = await controller.generateForSiri(question);
-      await _sendAnswer(answer.isEmpty ? 'I could not generate a response.' : answer);
+      await _sendAnswer(
+          answer.isEmpty ? 'I could not generate a response.' : answer);
     } catch (e) {
       await _sendAnswer('Sorry, something went wrong. Please try again.');
     }

@@ -59,7 +59,8 @@ class ModelIcon extends StatelessWidget {
 /// The "Running on-device · no internet used" indicator shown below the nav.
 /// The pulsing green dot is the single branded moment on the chat screen.
 class OnDeviceChip extends StatefulWidget {
-  const OnDeviceChip({super.key, this.label = 'Running on-device · no internet used'});
+  const OnDeviceChip(
+      {super.key, this.label = 'Running on-device · no internet used'});
   final String label;
 
   @override
@@ -160,7 +161,8 @@ class UserMessage extends StatelessWidget {
                 alignment: WrapAlignment.end,
                 spacing: 8,
                 runSpacing: 8,
-                children: attachments.map((a) => AttachmentThumbnail(a)).toList(),
+                children:
+                    attachments.map((a) => AttachmentThumbnail(a)).toList(),
               ),
               const SizedBox(height: 6),
             ],
@@ -171,8 +173,8 @@ class UserMessage extends StatelessWidget {
                   _showOptions(context);
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceOverlay,
                     borderRadius: AppRadius.userBubble,
@@ -207,8 +209,7 @@ class UserMessage extends StatelessWidget {
               ),
             ),
             ListTile(
-              leading: Icon(Icons.copy_outlined,
-                  color: AppColors.textMuted),
+              leading: Icon(Icons.copy_outlined, color: AppColors.textMuted),
               title: const Text('Copy'),
               onTap: () {
                 Navigator.pop(context);
@@ -218,8 +219,7 @@ class UserMessage extends StatelessWidget {
             ),
             if (onEdit != null)
               ListTile(
-                leading: Icon(Icons.edit_outlined,
-                    color: AppColors.textMuted),
+                leading: Icon(Icons.edit_outlined, color: AppColors.textMuted),
                 title: const Text('Edit & Resend'),
                 onTap: () {
                   Navigator.pop(context);
@@ -357,7 +357,9 @@ class _ActionRowState extends State<_ActionRow> {
             setState(() => _copied = true);
             Future.delayed(
               const Duration(seconds: 2),
-              () { if (mounted) setState(() => _copied = false); },
+              () {
+                if (mounted) setState(() => _copied = false);
+              },
             );
           },
         ),
@@ -395,9 +397,7 @@ class _ActionRowState extends State<_ActionRow> {
           ),
         if (widget.onRate != null) ...[
           _ActionBtn(
-            icon: widget.rating == 1
-                ? Icons.thumb_up
-                : Icons.thumb_up_outlined,
+            icon: widget.rating == 1 ? Icons.thumb_up : Icons.thumb_up_outlined,
             tooltip: 'Good response',
             color: widget.rating == 1 ? AppColors.accentGreen : null,
             onTap: () {
@@ -424,7 +424,10 @@ class _ActionRowState extends State<_ActionRow> {
 
 class _ActionBtn extends StatelessWidget {
   const _ActionBtn(
-      {required this.icon, required this.tooltip, required this.onTap, this.color});
+      {required this.icon,
+      required this.tooltip,
+      required this.onTap,
+      this.color});
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
@@ -469,13 +472,17 @@ class _TypingIndicatorState extends State<TypingIndicator>
   @override
   void initState() {
     super.initState();
-    _ctrls = List.generate(3, (i) => AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    ));
-    _anims = _ctrls.map((c) => Tween(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: c, curve: Curves.easeInOut),
-    )).toList();
+    _ctrls = List.generate(
+        3,
+        (i) => AnimationController(
+              vsync: this,
+              duration: const Duration(milliseconds: 600),
+            ));
+    _anims = _ctrls
+        .map((c) => Tween(begin: 0.0, end: 1.0).animate(
+              CurvedAnimation(parent: c, curve: Curves.easeInOut),
+            ))
+        .toList();
 
     // Stagger the start times
     for (var i = 0; i < 3; i++) {
@@ -501,26 +508,28 @@ class _TypingIndicatorState extends State<TypingIndicator>
         Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Row(
-            children: List.generate(3, (i) => Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: AnimatedBuilder(
-                animation: _anims[i],
-                builder: (_, __) => Transform.translate(
-                  offset: Offset(0, -3 * _anims[i].value),
-                  child: Opacity(
-                    opacity: 0.4 + 0.6 * _anims[i].value,
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: AppColors.textDim,
-                        shape: BoxShape.circle,
+            children: List.generate(
+                3,
+                (i) => Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: AnimatedBuilder(
+                        animation: _anims[i],
+                        builder: (_, __) => Transform.translate(
+                          offset: Offset(0, -3 * _anims[i].value),
+                          child: Opacity(
+                            opacity: 0.4 + 0.6 * _anims[i].value,
+                            child: Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: AppColors.textDim,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-              ),
-            )),
+                    )),
           ),
         ),
       ],
@@ -632,8 +641,8 @@ class ChatInputBox extends StatelessWidget {
                               size: 13, color: AppColors.accentGreen),
                           const SizedBox(width: 4),
                           Text('Remove background',
-                              style: AppTypography.badge.copyWith(
-                                  color: AppColors.accentGreen)),
+                              style: AppTypography.badge
+                                  .copyWith(color: AppColors.accentGreen)),
                         ],
                       ),
                     ),
@@ -661,8 +670,7 @@ class ChatInputBox extends StatelessWidget {
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         isDense: true,
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 4),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 4),
                         filled: false,
                       ),
                     ),
@@ -672,9 +680,8 @@ class ChatInputBox extends StatelessWidget {
                   Semantics(
                     button: true,
                     toggled: webSearchEnabled,
-                    label: webSearchEnabled
-                        ? 'Web search on'
-                        : 'Web search off',
+                    label:
+                        webSearchEnabled ? 'Web search on' : 'Web search off',
                     child: GestureDetector(
                       onTap: onToggleWebSearch,
                       child: Tooltip(
@@ -691,7 +698,8 @@ class ChatInputBox extends StatelessWidget {
                   // Mic button — pulses red while listening
                   Semantics(
                     button: true,
-                    label: isListening ? 'Stop listening' : 'Speak your message',
+                    label:
+                        isListening ? 'Stop listening' : 'Speak your message',
                     child: GestureDetector(
                       onTap: onToggleVoice,
                       child: Icon(
@@ -751,7 +759,8 @@ class _ImagePreview extends StatelessWidget {
     if (attachment.thumbnailBytes != null) {
       image = Image.memory(attachment.thumbnailBytes!, fit: BoxFit.cover);
     } else if (attachment.localPath != null) {
-      image = Image.network(attachment.localPath!, fit: BoxFit.cover,
+      image = Image.network(attachment.localPath!,
+          fit: BoxFit.cover,
           errorBuilder: (_, __, ___) =>
               Icon(Icons.image_outlined, color: AppColors.textMuted));
     } else {
@@ -814,8 +823,7 @@ class _VideoPreview extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
                   attachment.name,
-                  style: TextStyle(
-                      fontSize: 9, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 9, color: AppColors.textMuted),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
                   textAlign: TextAlign.center,
@@ -923,7 +931,8 @@ class _SendButton extends StatelessWidget {
             color: AppColors.white,
             borderRadius: AppRadius.button,
           ),
-          child: Icon(Icons.arrow_upward, size: 17, color: AppColors.surfaceSidebar),
+          child: Icon(Icons.arrow_upward,
+              size: 17, color: AppColors.surfaceSidebar),
         ),
       ),
     );
@@ -941,17 +950,17 @@ class _StopButton extends StatelessWidget {
       button: true,
       label: 'Stop generating',
       child: GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: AppColors.transparent,
-          borderRadius: AppRadius.button,
-          border: Border.all(color: AppColors.textDim, width: 1.5),
+        onTap: onTap,
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: AppColors.transparent,
+            borderRadius: AppRadius.button,
+            border: Border.all(color: AppColors.textDim, width: 1.5),
+          ),
+          child: Icon(Icons.stop, size: 14, color: AppColors.textPrimary),
         ),
-        child: Icon(Icons.stop, size: 14, color: AppColors.textPrimary),
-      ),
       ),
     );
   }
@@ -1031,7 +1040,8 @@ class SidebarRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.chat_bubble_outline, size: 15, color: AppColors.textMuted),
+              Icon(Icons.chat_bubble_outline,
+                  size: 15, color: AppColors.textMuted),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -1264,8 +1274,7 @@ class _ImageThumb extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.ios_share, color: Colors.white),
-              title: const Text('Share',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text('Share', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 if (bytes != null) {
@@ -1284,7 +1293,8 @@ class _ImageThumb extends StatelessWidget {
   Widget build(BuildContext context) {
     final imgWidget = bytes != null
         ? Image.memory(bytes!, fit: BoxFit.cover)
-        : Image.file(File(path!), fit: BoxFit.cover,
+        : Image.file(File(path!),
+            fit: BoxFit.cover,
             errorBuilder: (_, __, ___) =>
                 Icon(Icons.broken_image_outlined, color: AppColors.textMuted));
 
@@ -1351,7 +1361,8 @@ class FullscreenImageViewer extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                    icon:
+                        const Icon(Icons.close, color: Colors.white, size: 26),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   if (onSave != null)
@@ -1371,7 +1382,8 @@ class FullscreenImageViewer extends StatelessWidget {
 }
 
 class _FilePill extends StatelessWidget {
-  const _FilePill({required this.icon, required this.name, required this.color});
+  const _FilePill(
+      {required this.icon, required this.name, required this.color});
   final IconData icon;
   final String name;
   final Color color;
@@ -1475,9 +1487,7 @@ class _VideoThumbState extends State<_VideoThumb> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      _initialized
-                          ? Icons.play_arrow
-                          : Icons.hourglass_empty,
+                      _initialized ? Icons.play_arrow : Icons.hourglass_empty,
                       color: Colors.white,
                       size: 28,
                     ),
@@ -1497,7 +1507,8 @@ class _VideoThumbState extends State<_VideoThumb> {
 
 /// Shown in the assistant message while an image is being generated.
 class ImageGenProgress extends StatelessWidget {
-  const ImageGenProgress({super.key, required this.progress, required this.prompt});
+  const ImageGenProgress(
+      {super.key, required this.progress, required this.prompt});
   final double progress;
   final String prompt;
 
@@ -1521,8 +1532,7 @@ class ImageGenProgress extends StatelessWidget {
               value: progress > 0 ? progress : null,
               strokeWidth: 3,
               backgroundColor: AppColors.surfaceActive,
-              valueColor:
-                  const AlwaysStoppedAnimation(AppColors.accentGreen),
+              valueColor: const AlwaysStoppedAnimation(AppColors.accentGreen),
             ),
           ),
           const SizedBox(height: 12),

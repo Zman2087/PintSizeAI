@@ -10,8 +10,7 @@ class WebSearchService {
     connectTimeout: const Duration(seconds: 6),
     receiveTimeout: const Duration(seconds: 10),
     headers: {
-      'User-Agent':
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
           'AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
     },
   ));

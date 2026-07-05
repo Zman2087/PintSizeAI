@@ -89,9 +89,7 @@ abstract final class AppTheme {
       // Set Inter as the default for all Material text roles.
       // Individual widgets that need specific sizing use AppTypography directly.
       textTheme: GoogleFonts.interTextTheme(
-        (brightness == Brightness.dark
-                ? ThemeData.dark()
-                : ThemeData.light())
+        (brightness == Brightness.dark ? ThemeData.dark() : ThemeData.light())
             .textTheme,
       ).apply(
         bodyColor: AppColors.textPrimary,
@@ -114,8 +112,9 @@ abstract final class AppTheme {
         ),
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: AppColors.transparent,
-          statusBarIconBrightness:
-              brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+          statusBarIconBrightness: brightness == Brightness.dark
+              ? Brightness.light
+              : Brightness.dark,
           statusBarBrightness: brightness,
         ),
       ),
@@ -172,7 +171,8 @@ abstract final class AppTheme {
           foregroundColor: AppColors.surfaceSidebar,
           textStyle: AppTypography.modelName,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           elevation: 0,
         ),
       ),
@@ -191,7 +191,8 @@ abstract final class AppTheme {
           foregroundColor: AppColors.textMuted,
           highlightColor: AppColors.surfaceOverlay,
           hoverColor: AppColors.surfaceOverlay,
-          splashFactory: NoSplash.splashFactory, // no ripple — matches native feel
+          splashFactory:
+              NoSplash.splashFactory, // no ripple — matches native feel
           minimumSize: const Size(32, 32),
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -258,7 +259,8 @@ abstract final class AppTheme {
           return AppColors.textDim;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return AppColors.accentGreen;
+          if (states.contains(WidgetState.selected))
+            return AppColors.accentGreen;
           return AppColors.surfaceActive;
         }),
         trackOutlineColor: WidgetStateProperty.all(AppColors.transparent),

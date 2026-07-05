@@ -91,9 +91,8 @@ final rankedModelsProvider = FutureProvider<List<PickerModel>>((ref) async {
         eliminationReason: null,
       ));
     } else {
-      final ruled = rec.ruledOut
-          .where((r) => r.model.id == model.id)
-          .firstOrNull;
+      final ruled =
+          rec.ruledOut.where((r) => r.model.id == model.id).firstOrNull;
       result.add(PickerModel(
         model: model,
         isRecommended: false,

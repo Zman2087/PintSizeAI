@@ -224,7 +224,8 @@ void main() {
       // (content might be empty right at 0ms then grows)
     });
 
-    test('full stream eventually produces non-empty assistant response', () async {
+    test('full stream eventually produces non-empty assistant response',
+        () async {
       final container = await _makeContainer();
       addTearDown(container.dispose);
 

@@ -117,7 +117,8 @@ void main() {
       }
 
       expect(statuses, contains(LlamaStatus.ready)); // was ready before
-      expect(statuses, contains(LlamaStatus.generating)); // transitioned during stream
+      expect(statuses,
+          contains(LlamaStatus.generating)); // transitioned during stream
     });
 
     test('generate() errors when model not loaded', () async {
@@ -130,7 +131,8 @@ void main() {
 
     test('cancelGeneration() stops the stream early', () async {
       int tokenCount = 0;
-      await for (final _ in runner.generate('Tell me about the history of computing in detail')) {
+      await for (final _ in runner
+          .generate('Tell me about the history of computing in detail')) {
         tokenCount++;
         if (tokenCount == 3) {
           runner.cancelGeneration();

@@ -20,11 +20,12 @@ class ChatExportService {
           pw.Header(
             level: 0,
             child: pw.Text(title,
-                style: pw.TextStyle(
-                    fontSize: 20, fontWeight: pw.FontWeight.bold)),
+                style:
+                    pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
           ),
           pw.Text('Exported from PintSize AI',
-              style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+              style:
+                  const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
           pw.SizedBox(height: 16),
           ...messages.expand((m) {
             final isUser = m.isUser;
@@ -48,7 +49,8 @@ class ChatExportService {
                               fontWeight: pw.FontWeight.bold,
                               color: PdfColors.grey700)),
                       pw.SizedBox(height: 3),
-                      pw.Text(m.content, style: const pw.TextStyle(fontSize: 11)),
+                      pw.Text(m.content,
+                          style: const pw.TextStyle(fontSize: 11)),
                     ],
                   ),
                 ),

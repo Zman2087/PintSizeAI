@@ -40,8 +40,7 @@ const kSDModelCatalogue = [
   SDModel(
     id: 'sd-v1-5-palettized',
     displayName: 'Stable Diffusion 1.5',
-    description:
-        'Apple\'s palettized (6-bit quantised) version of SD 1.5. '
+    description: 'Apple\'s palettized (6-bit quantised) version of SD 1.5. '
         'Good all-round quality for photorealistic and artistic images. '
         '~1 GB download, runs on iPhone 12 or newer.',
     downloadUrl:

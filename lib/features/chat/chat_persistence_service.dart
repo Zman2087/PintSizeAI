@@ -34,7 +34,8 @@ class ChatPersistenceService {
   }
 
   /// Returns the stored sessions and active id, or null if nothing saved.
-  Future<({List<ChatSession> sessions, String? activeSessionId})?> load() async {
+  Future<({List<ChatSession> sessions, String? activeSessionId})?>
+      load() async {
     try {
       final file = await _file();
       if (!file.existsSync()) return null;
@@ -42,9 +43,8 @@ class ChatPersistenceService {
       if (raw.trim().isEmpty) return null;
       final map = jsonDecode(raw) as Map<String, dynamic>;
       final list = (map['sessions'] as List?) ?? const [];
-      final sessions = list
-          .map((s) => _sessionFromJson(s as Map<String, dynamic>))
-          .toList();
+      final sessions =
+          list.map((s) => _sessionFromJson(s as Map<String, dynamic>)).toList();
       return (
         sessions: sessions,
         activeSessionId: map['activeSessionId'] as String?,
@@ -97,8 +97,8 @@ class ChatPersistenceService {
   ChatMessage _messageFromJson(Map<String, dynamic> j) {
     final msg = ChatMessage(
       id: j['id'] as String,
-      role: MessageRole.values
-          .firstWhere((r) => r.name == j['role'], orElse: () => MessageRole.user),
+      role: MessageRole.values.firstWhere((r) => r.name == j['role'],
+          orElse: () => MessageRole.user),
       content: j['content'] as String? ?? '',
       timestamp:
           DateTime.tryParse(j['timestamp'] as String? ?? '') ?? DateTime.now(),
