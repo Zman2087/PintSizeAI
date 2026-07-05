@@ -84,6 +84,18 @@ class SDModelNotifier extends StateNotifier<SDModelStatus> {
     if (!Platform.isIOS) return; // Core ML not available on Android
     if (state.state == SDModelState.downloading) return;
 
+    // Catalogue URLs are hardcoded to Hugging Face, but keep the same https
+    // guardrail as every other download in case that ever changes.
+    final uri = Uri.tryParse(model.downloadUrl);
+    if (uri == null || uri.scheme != 'https') {
+      state = SDModelStatus(
+        state: SDModelState.error,
+        loadedModelId: model.id,
+        errorMessage: 'Invalid download URL (must be https).',
+      );
+      return;
+    }
+
     final dir = await _modelsDir;
     final zipPath = '${dir.path}/${model.id}.zip';
     final destPath = await _modelPath(model.id);
@@ -161,7 +173,17 @@ class SDModelNotifier extends StateNotifier<SDModelStatus> {
       final dest = Directory(destPath);
       if (!dest.existsSync()) dest.createSync(recursive: true);
       for (final file in archive) {
-        final filePath = '$destPath/${file.name}';
+        // Zip-slip guard: entry names come from a remote archive. Reject
+        // absolute paths, drive letters, and any '..' traversal segment so
+        // an entry can never write outside destPath.
+        final name = file.name.replaceAll(r'\', '/');
+        if (name.startsWith('/') ||
+            name.contains(':') ||
+            name.split('/').contains('..')) {
+          continue;
+        }
+        if (file.isSymbolicLink) continue;
+        final filePath = '$destPath/$name';
         if (file.isFile) {
           final outFile = File(filePath);
           outFile.createSync(recursive: true);

@@ -71,7 +71,8 @@ class ChatExportService {
   /// Saves [imageBytes] to a temp file and opens the share sheet.
   Future<void> shareImage(Uint8List imageBytes, {String name = 'image'}) async {
     final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/$name.png');
+    final safe = name.replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '_');
+    final file = File('${dir.path}/$safe.png');
     await file.writeAsBytes(imageBytes);
     await Share.shareXFiles([XFile(file.path)]);
   }

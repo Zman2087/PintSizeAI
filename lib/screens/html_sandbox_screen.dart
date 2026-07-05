@@ -46,13 +46,31 @@ class _HtmlSandboxScreenState extends State<HtmlSandboxScreen> {
       ..loadHtmlString(_wrapHtml(widget.html));
   }
 
+  // Belt-and-braces on top of the navigation lockdown: inline script/style
+  // may run (that's the point of the sandbox), but the document gets no
+  // network access — no fetch/XHR/websockets, no remote images or fonts.
+  static const _csp =
+      '<meta http-equiv="Content-Security-Policy" content="'
+      "default-src 'none'; style-src 'unsafe-inline'; "
+      "script-src 'unsafe-inline'; img-src data: blob:; "
+      'font-src data:; media-src data: blob:;">';
+
+  static final _headRe = RegExp(r'<head[^>]*>', caseSensitive: false);
+
   String _wrapHtml(String html) {
-    // If already a full document, use as-is
-    if (html.contains('<html') || html.contains('<!DOCTYPE')) return html;
+    // If already a full document, inject the CSP rather than skipping it.
+    if (html.contains('<html') || html.contains('<!DOCTYPE')) {
+      final m = _headRe.firstMatch(html);
+      if (m != null) {
+        return html.replaceRange(m.end, m.end, _csp);
+      }
+      return '$_csp$html'; // no <head>: browsers hoist a leading meta
+    }
     // Otherwise wrap in a minimal dark-mode document
     return '''<!DOCTYPE html>
 <html>
 <head>
+$_csp
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   body { background: #0f1d38; color: #e8edf7; font-family: -apple-system, sans-serif; margin: 16px; }

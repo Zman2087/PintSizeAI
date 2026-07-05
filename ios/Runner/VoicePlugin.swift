@@ -180,7 +180,10 @@ final class VoicePlugin: NSObject, AVSpeechSynthesizerDelegate {
 
         let req = SFSpeechAudioBufferRecognitionRequest()
         req.shouldReportPartialResults = true
-        req.requiresOnDeviceRecognition = false
+        // Keep speech on-device where the hardware supports it — matches the
+        // app's privacy promise. Older devices fall back to Apple's servers.
+        req.requiresOnDeviceRecognition =
+            recognizer?.supportsOnDeviceRecognition ?? false
         request = req
 
         let inputNode = audioEngine.inputNode

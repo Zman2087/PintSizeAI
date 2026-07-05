@@ -41,9 +41,19 @@ void main() {
       chipTier: ChipTier.flagship,
     );
 
-    test('recommends a 7B or 8B model', () {
+    test('recommends a flagship-tier model and 8B models still fit', () {
       final rec = recommender.recommend(device);
-      expect(rec.recommended.parametersBillions, greaterThanOrEqualTo(7.0));
+      // Since Qwen 3.5 (2026), a 4B multimodal model legitimately outranks
+      // the 2024 7–8B generation on quality × speed × headroom, so the
+      // recommendation floor is 4B — but a flagship must still be *able*
+      // to run the 8B tier (i.e. it must rank, not be ruled out).
+      expect(rec.recommended.parametersBillions, greaterThanOrEqualTo(4.0));
+      expect(
+        rec.allRanked.where(
+          (r) => r.model.parametersBillions >= 7.0 && r.fitsInRam,
+        ),
+        isNotEmpty,
+      );
     });
 
     test('estimated speed is above the minimum floor', () {

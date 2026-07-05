@@ -7,6 +7,7 @@ import '../llm/llama_runner.dart';
 import '../llm/llm_providers.dart';
 import '../settings/settings_providers.dart';
 import '../siri/siri_service.dart';
+import '../web_search/url_fetch_service.dart';
 import 'model_download_service.dart';
 import 'model_storage_service.dart';
 
@@ -226,8 +227,19 @@ class ModelActions {
   }
 
   /// Downloads a file (e.g. the mmproj projector) directly to [destPath].
+  ///
+  /// URLs can come from the remote catalogue, so they get the same guardrails
+  /// as the main GGUF download: https only, and no host that resolves to a
+  /// loopback/private address (SSRF).
   Future<void> _downloadFile(String url, String destPath) async {
-    final dio = Dio();
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.scheme != 'https') {
+      throw ArgumentError('Download URL must be https: $url');
+    }
+    if (!await UrlFetchService.isSafeUrlResolved(uri)) {
+      throw ArgumentError('Download URL rejected: $url');
+    }
+    final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 15)));
     await dio.download(
       url,
       destPath,

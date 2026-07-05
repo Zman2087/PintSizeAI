@@ -80,13 +80,20 @@ class WebSearchService {
 
   Future<String?> _htmlResults(String query) async {
     try {
-      final resp = await _dio.get(
+      // Stream the body and stop at 500 KB so an oversized (or hostile)
+      // response can't balloon memory — only the first snippets matter.
+      final resp = await _dio.get<ResponseBody>(
         'https://html.duckduckgo.com/html/',
         queryParameters: {'q': query},
-        options: Options(responseType: ResponseType.plain),
+        options: Options(responseType: ResponseType.stream),
       );
       if (resp.statusCode != 200) return null;
-      final html = resp.data as String;
+      final bytes = <int>[];
+      await for (final chunk in resp.data!.stream) {
+        bytes.addAll(chunk);
+        if (bytes.length > 500 * 1024) break;
+      }
+      final html = utf8.decode(bytes, allowMalformed: true);
 
       // Each result snippet sits in <a class="result__snippet">…</a>
       final snippetRe = RegExp(

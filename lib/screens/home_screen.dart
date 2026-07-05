@@ -416,6 +416,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ModelFamily.qwen => AppColors.modelPurple,
         ModelFamily.deepseek => AppColors.modelBlue,
         ModelFamily.smollm => AppColors.modelSurface,
+        ModelFamily.lfm => AppColors.modelGreen,
       };
 
   IconData _iconData(ModelFamily f) => switch (f) {
@@ -426,6 +427,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ModelFamily.qwen => Icons.waves,
         ModelFamily.deepseek => Icons.psychology_outlined,
         ModelFamily.smollm => Icons.bubble_chart_outlined,
+        ModelFamily.lfm => Icons.water_drop_outlined,
       };
 
   Future<void> _generateImg2Img(Uint8List sourceBytes, String prompt) async {
@@ -1497,6 +1499,7 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
         ModelFamily.qwen => AppColors.modelPurple,
         ModelFamily.deepseek => AppColors.modelBlue,
         ModelFamily.smollm => AppColors.modelSurface,
+        ModelFamily.lfm => AppColors.modelGreen,
         null => AppColors.modelSurface,
       };
 
@@ -1508,6 +1511,7 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
         ModelFamily.qwen => Icons.waves,
         ModelFamily.deepseek => Icons.psychology_outlined,
         ModelFamily.smollm => Icons.bubble_chart_outlined,
+        ModelFamily.lfm => Icons.water_drop_outlined,
         null => Icons.memory_outlined,
       };
 }
@@ -1959,6 +1963,7 @@ class _MessageList extends ConsumerWidget {
       ModelFamily.qwen => AppColors.modelPurple,
       ModelFamily.deepseek => AppColors.modelBlue,
       ModelFamily.smollm => AppColors.modelSurface,
+        ModelFamily.lfm => AppColors.modelGreen,
       null => AppColors.modelSurface,
     };
     final icon = switch (model?.family) {
@@ -1969,6 +1974,7 @@ class _MessageList extends ConsumerWidget {
       ModelFamily.qwen => Icons.waves,
       ModelFamily.deepseek => Icons.psychology_outlined,
       ModelFamily.smollm => Icons.bubble_chart_outlined,
+        ModelFamily.lfm => Icons.water_drop_outlined,
       null => Icons.memory_outlined,
     };
     return ModelIcon(color: color, icon: icon, size: size);

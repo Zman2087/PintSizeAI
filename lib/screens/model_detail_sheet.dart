@@ -233,6 +233,7 @@ class _ModelDetailSheet extends ConsumerWidget {
       ModelFamily.qwen => AppColors.modelPurple,
       ModelFamily.deepseek => AppColors.modelBlue,
       ModelFamily.smollm => AppColors.modelSurface,
+        ModelFamily.lfm => AppColors.modelGreen,
     };
     final icon = switch (m.family) {
       ModelFamily.llama => Icons.memory,
@@ -242,6 +243,7 @@ class _ModelDetailSheet extends ConsumerWidget {
       ModelFamily.qwen => Icons.waves,
       ModelFamily.deepseek => Icons.psychology_outlined,
       ModelFamily.smollm => Icons.bubble_chart_outlined,
+        ModelFamily.lfm => Icons.water_drop_outlined,
     };
     return ModelIcon(color: color, icon: icon, size: 44);
   }

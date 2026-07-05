@@ -228,6 +228,7 @@ enum ModelFamily {
   qwen,
   deepseek,
   smollm,
+  lfm,
 }
 
 extension ModelFamilyLabel on ModelFamily {
@@ -239,6 +240,7 @@ extension ModelFamilyLabel on ModelFamily {
     ModelFamily.qwen     => 'Qwen',
     ModelFamily.deepseek => 'DeepSeek',
     ModelFamily.smollm   => 'SmolLM',
+    ModelFamily.lfm      => 'LFM',
   };
 }
 
@@ -333,6 +335,35 @@ const List<ModelVariant> kModelCatalogue = [
     huggingFaceUrl: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct',
   ),
 
+  // ── Qwen 3.5 0.8B — tiny, multimodal, March 2026 ─────────────────────────
+  // File sizes verified against unsloth/Qwen3.5-0.8B-GGUF (HF API, Jul 2026).
+  ModelVariant(
+    id: 'qwen35-0b8-q4km',
+    displayName: 'Qwen 3.5 0.8B',
+    family: ModelFamily.qwen,
+    parametersBillions: 0.8,
+    quant: Quant.q4km,
+    fileSizeBytes: 532517120,
+    ramRequiredBytes: 700000000,
+    contextLength: 262144,
+    isMultimodal: true,
+    downloadUrl: 'https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf',
+    mmprojUrl: 'https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/mmproj-F16.gguf',
+    strengths: ['Vision built in', 'Ultra-fast', '201 languages', 'Huge context'],
+    creator: 'Alibaba',
+    releaseYear: 2026,
+    releaseMonth: 3,
+    description: 'Qwen 3.5 0.8B is the smallest model in Alibaba\'s natively multimodal '
+        'Qwen 3.5 series — one 530 MB download gives you chat AND image understanding '
+        '(with the 205 MB vision encoder). A huge upgrade over Qwen 2.5 0.5B in every '
+        'dimension: knowledge, languages, and the ability to see photos.',
+    limitations: ['Complex reasoning', 'Long-form writing'],
+    minRamGbRecommended: 2,
+    recommendedDevice: 'Any iPhone 11 or newer, Android with 3GB RAM',
+    huggingFaceUrl: 'https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF',
+    supersedes: 'qwen25-0b5-q4km',
+  ),
+
   // ── Gemma 3 1B — Google's tiny model, 600 MB ─────────────────────────────
   ModelVariant(
     id: 'gemma3-1b-q4km',
@@ -355,6 +386,32 @@ const List<ModelVariant> kModelCatalogue = [
     minRamGbRecommended: 2,
     recommendedDevice: 'Any iPhone 11 or newer, Android with 3GB RAM',
     huggingFaceUrl: 'https://huggingface.co/google/gemma-3-1b-it',
+  ),
+
+  // ── LFM2.5 1.2B — Liquid AI's on-device speed champion, June 2026 ────────
+  // File size verified against LiquidAI/LFM2.5-1.2B-Instruct-GGUF (HF API).
+  ModelVariant(
+    id: 'lfm25-1b2-q4km',
+    displayName: 'LFM2.5 1.2B',
+    family: ModelFamily.lfm,
+    parametersBillions: 1.2,
+    quant: Quant.q4km,
+    fileSizeBytes: 730895168,
+    ramRequiredBytes: 950000000,
+    contextLength: 32768,
+    downloadUrl: 'https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/main/LFM2.5-1.2B-Instruct-Q4_K_M.gguf',
+    strengths: ['Fastest in class', 'Built for phones', 'Instruction following'],
+    creator: 'Liquid AI',
+    releaseYear: 2026,
+    releaseMonth: 6,
+    description: 'LFM2.5 1.2B is Liquid AI\'s June 2026 model designed from the ground up '
+        'for phone hardware — its hybrid architecture decodes noticeably faster than '
+        'transformer models of the same size. The pick when you want snappy, low-latency '
+        'replies with quality above its weight class.',
+    limitations: ['Deep reasoning', 'Niche knowledge domains'],
+    minRamGbRecommended: 2,
+    recommendedDevice: 'Any iPhone 11 or newer, Android with 3GB RAM',
+    huggingFaceUrl: 'https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF',
   ),
 
   // ── DeepSeek-R1 1.5B — smallest reasoning model, ~900 MB ─────────────────
@@ -405,6 +462,35 @@ const List<ModelVariant> kModelCatalogue = [
     minRamGbRecommended: 2,
     recommendedDevice: 'iPhone 11 or newer, Android with 3GB RAM',
     huggingFaceUrl: 'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct',
+  ),
+
+  // ── Qwen 3.5 2B — small multimodal all-rounder, March 2026 ───────────────
+  // File sizes verified against unsloth/Qwen3.5-2B-GGUF (HF API, Jul 2026).
+  ModelVariant(
+    id: 'qwen35-2b-q4km',
+    displayName: 'Qwen 3.5 2B',
+    family: ModelFamily.qwen,
+    parametersBillions: 2.0,
+    quant: Quant.q4km,
+    fileSizeBytes: 1280835840,
+    ramRequiredBytes: 1600000000,
+    contextLength: 262144,
+    isMultimodal: true,
+    downloadUrl: 'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
+    mmprojUrl: 'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf',
+    strengths: ['Vision built in', 'Fast', '201 languages', 'Strong for its size'],
+    creator: 'Alibaba',
+    releaseYear: 2026,
+    releaseMonth: 3,
+    description: 'Qwen 3.5 2B pairs genuinely useful chat quality with native image '
+        'understanding in a 1.3 GB download (plus a 670 MB vision encoder). It replaces '
+        'the need for a separate vision model on mid-range devices and comfortably beats '
+        'the previous 1.5B generation on every benchmark.',
+    limitations: ['Complex multi-step reasoning', 'Specialised coding'],
+    minRamGbRecommended: 3,
+    recommendedDevice: 'iPhone 12 or newer, Android with 4GB RAM',
+    huggingFaceUrl: 'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF',
+    supersedes: 'qwen25-1b5-q4km',
   ),
 
   // ── Llama 3.2 1B ─────────────────────────────────────────────────────────
@@ -558,6 +644,64 @@ const List<ModelVariant> kModelCatalogue = [
     minRamGbRecommended: 4,
     recommendedDevice: 'iPhone 14 or newer, Android flagship with 4GB RAM',
     huggingFaceUrl: 'https://huggingface.co/google/gemma-3-4b-it',
+  ),
+
+  // ── Qwen 3.5 4B — the 2026 default: chat + vision + optional thinking ────
+  // File sizes verified against unsloth/Qwen3.5-4B-GGUF (HF API, Jul 2026).
+  ModelVariant(
+    id: 'qwen35-4b-q4km',
+    displayName: 'Qwen 3.5 4B',
+    family: ModelFamily.qwen,
+    parametersBillions: 4.0,
+    quant: Quant.q4km,
+    fileSizeBytes: 2740937888,
+    ramRequiredBytes: 3300000000,
+    contextLength: 262144,
+    isMultimodal: true,
+    downloadUrl: 'https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf',
+    mmprojUrl: 'https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/mmproj-F16.gguf',
+    strengths: ['Vision built in', 'Best all-rounder', 'Hybrid reasoning', '201 languages'],
+    creator: 'Alibaba',
+    releaseYear: 2026,
+    releaseMonth: 3,
+    description: 'Qwen 3.5 4B is the most downloaded small model on Hugging Face and the '
+        'best single download for a modern phone: strong chat, native image understanding '
+        '(with the 670 MB vision encoder), and hybrid reasoning that can think step-by-step '
+        'when a question needs it. One model that covers what previously took three.',
+    limitations: ['Requires 4GB+ RAM', 'Slower than 1–2B models'],
+    minRamGbRecommended: 4,
+    recommendedDevice: 'iPhone 13 or newer, Android with 6GB RAM',
+    huggingFaceUrl: 'https://huggingface.co/unsloth/Qwen3.5-4B-GGUF',
+    supersedes: 'qwen25-3b-q4km',
+  ),
+
+  // ── Gemma 4 E2B — Google's 2026 phone-first multimodal model ─────────────
+  // File sizes verified against unsloth/gemma-4-E2B-it-GGUF (HF API, Jul 2026).
+  ModelVariant(
+    id: 'gemma4-e2b-q4km',
+    displayName: 'Gemma 4 E2B',
+    family: ModelFamily.gemma,
+    parametersBillions: 4.4,
+    quant: Quant.q4km,
+    fileSizeBytes: 3106736256,
+    ramRequiredBytes: 3700000000,
+    contextLength: 131072,
+    isMultimodal: true,
+    downloadUrl: 'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf',
+    mmprojUrl: 'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/mmproj-F16.gguf',
+    strengths: ['Vision built in', 'Google quality', 'Multilingual', '128k context'],
+    creator: 'Google DeepMind',
+    releaseYear: 2026,
+    releaseMonth: 4,
+    description: 'Gemma 4 E2B is Google\'s April 2026 phone-first model, built on the '
+        'effective-parameter design pioneered by Gemma 3n: 4.4B parameters on disk that '
+        'run with the speed and memory profile of a ~2B model. Takes text and images '
+        '(with the 990 MB vision encoder) and delivers Google-grade instruction following.',
+    limitations: ['Larger download than its speed class suggests', 'Requires 4GB+ RAM'],
+    minRamGbRecommended: 4,
+    recommendedDevice: 'iPhone 14 or newer, Android with 6GB RAM',
+    huggingFaceUrl: 'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF',
+    supersedes: 'gemma3-4b-q4km',
   ),
 
   // ── Qwen 2.5 7B ──────────────────────────────────────────────────────────

@@ -350,7 +350,10 @@ final class MediaPlugin: NSObject {
             let url = URL(fileURLWithPath: path)
             let request = SFSpeechURLRecognitionRequest(url: url)
             request.shouldReportPartialResults = false
-            request.requiresOnDeviceRecognition = false
+            // Keep transcription on-device where supported (privacy promise);
+            // older devices fall back to Apple's servers.
+            request.requiresOnDeviceRecognition =
+                recognizer.supportsOnDeviceRecognition
 
             recognizer.recognitionTask(with: request) { response, error in
                 DispatchQueue.main.async {

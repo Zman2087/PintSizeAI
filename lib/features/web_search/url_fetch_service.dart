@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 /// Fetches a URL's text content and returns it stripped of HTML tags,
@@ -45,34 +46,65 @@ class UrlFetchService {
     return (b[0] & 0xfe) == 0xfc; // IPv6 unique-local fc00::/7
   }
 
+  /// Like [isSafeUrl], but also resolves the hostname so a DNS name pointing
+  /// at a loopback/link-local/private address is rejected too — [isSafeUrl]
+  /// alone only catches literal IPs.
+  static Future<bool> isSafeUrlResolved(Uri uri) async {
+    if (!isSafeUrl(uri)) return false;
+    if (InternetAddress.tryParse(uri.host) != null) return true; // literal, already vetted
+    try {
+      final addrs = await InternetAddress.lookup(uri.host)
+          .timeout(const Duration(seconds: 5));
+      if (addrs.isEmpty) return false;
+      for (final a in addrs) {
+        if (a.isLoopback || a.isLinkLocal || _isPrivateIp(a)) return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Fetches [url] and returns cleaned plain text (max 8 000 chars).
   /// Returns null on any error.
   Future<String?> fetch(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null || !isSafeUrl(uri)) return null;
+    var uri = Uri.tryParse(url);
+    if (uri == null) return null;
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 10);
     try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 10);
-      final req = await client.getUrl(uri);
-      req.headers.set('User-Agent', 'PintSizeAi/1.0 (compatible; iOS)');
-      req.headers.set('Accept', 'text/html,text/plain');
-      final resp = await req.close();
-      // Re-check every redirect hop — a public URL must not be able to
-      // bounce the fetch onto localhost or a private address.
-      for (final r in resp.redirects) {
-        if (!isSafeUrl(uri.resolveUri(r.location))) {
-          client.close(force: true);
-          return null;
+      // Follow redirects manually so every hop — not just the first URL —
+      // is vetted (incl. DNS resolution) before we connect to it.
+      HttpClientResponse? resp;
+      for (var hop = 0; hop < 5; hop++) {
+        if (!await isSafeUrlResolved(uri!)) return null;
+        final req = await client.getUrl(uri);
+        req.followRedirects = false;
+        req.headers.set('User-Agent', 'PintSizeAi/1.0 (compatible; iOS)');
+        req.headers.set('Accept', 'text/html,text/plain');
+        final r = await req.close().timeout(const Duration(seconds: 15));
+        if (r.isRedirect) {
+          final loc = r.headers.value(HttpHeaders.locationHeader);
+          if (loc == null) return null;
+          unawaited(r.drain<void>().catchError((_) {}));
+          uri = uri.resolve(loc);
+          continue;
         }
+        resp = r;
+        break;
       }
-      if (resp.statusCode != 200) return null;
+      if (resp == null || resp.statusCode != 200) return null;
 
       final bytes = <int>[];
-      await for (final chunk in resp) {
+      // Per-chunk timeout defeats slow-loris servers that trickle bytes to
+      // pin the connection open; the byte cap bounds memory.
+      await for (final chunk in resp.timeout(
+        const Duration(seconds: 15),
+        onTimeout: (sink) => sink.close(),
+      )) {
         bytes.addAll(chunk);
         if (bytes.length > 300 * 1024) break; // stop at 300 KB
       }
-      client.close();
 
       var body = String.fromCharCodes(bytes);
       body = _stripHtml(body);
@@ -81,6 +113,8 @@ class UrlFetchService {
       return body.isEmpty ? null : body;
     } catch (_) {
       return null;
+    } finally {
+      client.close(force: true);
     }
   }
 

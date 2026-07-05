@@ -15,6 +15,11 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
     mtmd_context         *_mctx;   // multimodal projector context (nullable)
     std::atomic<bool>     _cancelled;
     dispatch_queue_t      _genQueue; // serial — one generation at a time
+
+    // Tokens currently held in the KV cache (prompt + generated), used to
+    // reuse the longest common prefix across turns instead of re-evaluating
+    // the whole conversation every message. Only touched on _genQueue.
+    std::vector<llama_token> _cachedTokens;
 }
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────
@@ -55,11 +60,34 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
                   error:(NSError **)error {
     [self unload]; // free any previous model first
 
-    // Model params — CPU-only for broad compatibility
+    // Offload every layer to the GPU via Metal — far faster and much cooler
+    // than CPU inference. Falls back to CPU below if Metal can't initialise.
     struct llama_model_params mparams = llama_model_default_params();
-    mparams.n_gpu_layers = 0;
+    mparams.n_gpu_layers = 999;
 
-    _model = llama_model_load_from_file([path UTF8String], mparams);
+    // Context — cap at 4096 tokens to keep RAM reasonable
+    struct llama_context_params cparams = llama_context_default_params();
+    cparams.n_ctx   = (uint32_t)MIN(contextLength, 4096);
+    cparams.n_batch = 512;
+    // A couple of threads fewer than the core count: iPhones pair performance
+    // cores with efficiency cores, and saturating all of them throttles the
+    // P-cores and cooks the phone for little extra speed.
+    int cores = (int)[[NSProcessInfo processInfo] activeProcessorCount];
+    int nThreads = MAX(2, MIN(4, cores - 1));
+    cparams.n_threads       = (int32_t)nThreads;
+    cparams.n_threads_batch = (int32_t)nThreads;
+
+    for (int attempt = 0; attempt < 2 && !_ctx; attempt++) {
+        if (attempt == 1) {
+            // Metal failed (old device / GPU memory pressure) — retry on CPU.
+            if (_model) { llama_model_free(_model); _model = nullptr; }
+            mparams.n_gpu_layers = 0;
+        }
+        _model = llama_model_load_from_file([path UTF8String], mparams);
+        if (!_model) continue;
+        _ctx = llama_new_context_with_model(_model, cparams);
+    }
+
     if (!_model) {
         if (error) {
             *error = [NSError errorWithDomain:kLlamaErrorDomain
@@ -71,17 +99,6 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
         }
         return NO;
     }
-
-    // Context — cap at 4096 tokens to keep RAM reasonable
-    struct llama_context_params cparams = llama_context_default_params();
-    cparams.n_ctx   = (uint32_t)MIN(contextLength, 4096);
-    cparams.n_batch = 512;
-    // Use all available cores for faster generation on CPU.
-    int cores = (int)[[NSProcessInfo processInfo] activeProcessorCount];
-    cparams.n_threads       = (int32_t)MAX(2, cores);
-    cparams.n_threads_batch = (int32_t)MAX(2, cores);
-
-    _ctx = llama_new_context_with_model(_model, cparams);
     if (!_ctx) {
         llama_model_free(_model);
         _model = nullptr;
@@ -111,12 +128,17 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
     if (_mctx) { mtmd_free(_mctx); _mctx = nullptr; }
 
     mtmd_context_params mparams = mtmd_context_params_default();
-    mparams.use_gpu       = false;
+    mparams.use_gpu       = true;  // image encoding on Metal — far faster than CPU
     mparams.print_timings = false;
     mparams.n_threads     = (int)MAX(1, [[NSProcessInfo processInfo] activeProcessorCount] - 1);
     mparams.media_marker  = mtmd_default_marker();
 
     _mctx = mtmd_init_from_file([mmprojPath UTF8String], _model, mparams);
+    if (!_mctx) {
+        // Some projectors have ops without Metal kernels — retry on CPU.
+        mparams.use_gpu = false;
+        _mctx = mtmd_init_from_file([mmprojPath UTF8String], _model, mparams);
+    }
     if (!_mctx) {
         if (error) {
             *error = [NSError errorWithDomain:kLlamaErrorDomain code:7
@@ -168,10 +190,14 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
 
 - (void)unload {
     _cancelled.store(true);
+    // Wait for any in-flight generation to notice the flag and drain, so we
+    // never free the context/model out from under a running decode.
+    dispatch_sync(_genQueue, ^{});
     if (_mctx)    { mtmd_free(_mctx);             _mctx    = nullptr; }
     if (_sampler) { llama_sampler_free(_sampler); _sampler = nullptr; }
     if (_ctx)     { llama_free(_ctx);             _ctx     = nullptr; }
     if (_model)   { llama_model_free(_model);     _model   = nullptr; }
+    _cachedTokens.clear();
 }
 
 // ── Generation ───────────────────────────────────────────────────────────────
@@ -243,14 +269,37 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
             }
             const int promptCount = (int)tokens.size();
 
-            llama_memory_clear(llama_get_memory(ctx), true);
+            // Reuse the longest common prefix already in the KV cache. Each
+            // turn's prompt is the previous prompt + reply + the new user
+            // message, so this skips re-evaluating the whole conversation —
+            // the main cause of the phone heating up in long chats. Keep at
+            // least one token to decode so we always have fresh logits.
+            size_t lcp = 0;
+            while (lcp < self->_cachedTokens.size() &&
+                   lcp < tokens.size() - 1 &&
+                   self->_cachedTokens[lcp] == tokens[lcp]) {
+                lcp++;
+            }
+            // Partial removal fails on caches that don't support it (e.g.
+            // sliding-window attention) — fall back to a full re-evaluation.
+            if (lcp > 0 &&
+                !llama_memory_seq_rm(llama_get_memory(ctx), 0, (llama_pos)lcp, -1)) {
+                lcp = 0;
+            }
+            if (lcp == 0) {
+                llama_memory_clear(llama_get_memory(ctx), true);
+            }
+            self->_cachedTokens.assign(tokens.begin(), tokens.begin() + lcp);
 
             bool decodeFailed = false;
-            for (int i = 0; i < promptCount; i += nBatch) {
+            for (int i = (int)lcp; i < promptCount; i += nBatch) {
                 if (self->_cancelled.load()) break;
                 int chunk = MIN(nBatch, promptCount - i);
                 llama_batch b = llama_batch_get_one(tokens.data() + i, chunk);
                 if (llama_decode(ctx, b) != 0) { decodeFailed = true; break; }
+                self->_cachedTokens.insert(self->_cachedTokens.end(),
+                                           tokens.begin() + i,
+                                           tokens.begin() + i + chunk);
             }
             if (decodeFailed) {
                 dispatch_async(dispatch_get_main_queue(), ^{
@@ -294,6 +343,7 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
                 // Feed the new token back for the next decode step
                 llama_batch nextBatch = llama_batch_get_one(&tok, 1);
                 if (llama_decode(ctx, nextBatch) != 0) break;
+                self->_cachedTokens.push_back(tok);
 
                 nPast++;
                 generated++;
@@ -377,7 +427,10 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
                 return;
             }
 
+            // Image embeddings aren't representable in the token cache, so
+            // vision turns always start from a clean context.
             llama_memory_clear(llama_get_memory(ctx), true);
+            self->_cachedTokens.clear();
             llama_pos newNPast = 0;
             int32_t ev = mtmd_helper_eval_chunks(mctx, ctx, chunks,
                                                  /*n_past*/ 0,
@@ -391,8 +444,13 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
 
             // ── Generation loop (identical to the text path) ────────────────
             const struct llama_vocab *vocab = llama_model_get_vocab(model);
+            const int nCtx = (int)llama_n_ctx(ctx);
+            int nPast = (int)newNPast;
             NSInteger generated = 0;
             while (generated < maxTokens && !self->_cancelled.load()) {
+                // Stop before we run out of context window (avoids a crash).
+                if (nPast >= nCtx - 1) break;
+
                 llama_token tok = llama_sampler_sample(sampler, ctx, -1);
                 llama_sampler_accept(sampler, tok);
                 if (llama_vocab_is_eog(vocab, tok)) break;
@@ -412,6 +470,7 @@ static NSString * const kLlamaErrorDomain = @"LlamaEngineError";
 
                 llama_batch nextBatch = llama_batch_get_one(&tok, 1);
                 if (llama_decode(ctx, nextBatch) != 0) break;
+                nPast++;
                 generated++;
             }
 

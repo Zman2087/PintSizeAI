@@ -198,7 +198,7 @@ class StockService {
     final r = chartRanges[rangeLabel] ?? chartRanges['1M']!;
     try {
       final resp = await _dio.get(
-        'https://query1.finance.yahoo.com/v8/finance/chart/$symbol',
+        'https://query1.finance.yahoo.com/v8/finance/chart/${Uri.encodeComponent(symbol)}',
         queryParameters: {'range': r.range, 'interval': r.interval},
       );
       final result = (resp.data['chart']?['result'] as List?)?.firstOrNull;
@@ -219,7 +219,7 @@ class StockService {
         StockService.chartRanges['1M']!;
     try {
       final resp = await _dio.get(
-        'https://query1.finance.yahoo.com/v8/finance/chart/$symbol',
+        'https://query1.finance.yahoo.com/v8/finance/chart/${Uri.encodeComponent(symbol)}',
         queryParameters: {'range': r.range, 'interval': r.interval},
       );
       final result = (resp.data['chart']?['result'] as List?)?.firstOrNull;
